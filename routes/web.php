@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Laravel\Fortify\Features;
 use App\Http\Controllers\ClipController;
+use App\Http\Controllers\DashboardController;
 
 Route::get('/', function () {
     return Inertia::render('Welcome', [
@@ -11,9 +12,13 @@ Route::get('/', function () {
     ]);
 })->name('home');
 
-Route::get('dashboard', function () {
-    return Inertia::render('Dashboard');
-})->middleware(['auth', 'verified'])->name('dashboard');
+// Route::get('dashboard', function () {
+//     return Inertia::render('Dashboard_old');
+// })->middleware(['auth', 'verified'])->name('dashboard');
+
+Route::get('/dashboard', [DashboardController::class, 'index'])
+    ->middleware(['auth', 'verified'])
+    ->name('dashboard');
 
 
 Route::middleware(['auth', 'verified'])->prefix('flick')->name('flick.')->group(function () {
@@ -29,22 +34,3 @@ Route::middleware(['auth', 'verified'])->prefix('flick')->name('flick.')->group(
 
 
 require __DIR__.'/settings.php';
-
-
-use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Facades\Response;
-
-// Esta ruta fuerza a Laravel a servir el archivo correctamente
-// Route::get('/video-stream/{filename}', function ($filename) {
-//     // Busca en storage/app/public/videos/
-//     $path = "videos/{$filename}";
-    
-//     if (!Storage::disk('public')->exists($path)) {
-//         abort(404);
-//     }
-
-//     $file = Storage::disk('public')->path($path);
-
-//     // Devuelve el archivo preparado para streaming (Range support)
-//     return response()->file($file);
-// })->where('filename', '.*');

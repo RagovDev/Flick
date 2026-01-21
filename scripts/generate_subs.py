@@ -33,3 +33,12 @@ if __name__ == "__main__":
 
     video_file_path = sys.argv[1]
     generate_subtitles(video_file_path)
+
+#
+# Metodo temporal para agregar nuevos videos
+#
+# 1. Bajar video y ponerlo en public/videos
+# 2. Correr el comando:    python scripts/generate_subs.py storage/app/public/videos/test_clip.mp4 (test_clip seria el nombre del video a editar)
+# 3. Editar el archivo semilla ClipSeeder.php. Pegar los subtitulos y la informacion del video.
+# 4. Correr en la terminal:    php artisan db:seed
+#

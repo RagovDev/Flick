@@ -73,17 +73,18 @@ class ClipController extends Controller
         ]);
 
         $user = Auth::user();
-        $option = Option::find($request->option_id);
         
-        // Verificar si es correcta
+        // Verificar si ya respondió este video antes (para no sumar puntos dobles)
+        $alreadyAnswered = UserProgress::where('user_id', $user->id)
+            ->where('clip_id', $request->clip_id)
+            ->exists();
+
+        $option = Option::find($request->option_id);
         $isCorrect = $option->is_correct;
 
-        // Guardar progreso (Evitamos duplicados con firstOrCreate o updateOrCreate)
+        // Guardar o Actualizar progreso
         UserProgress::updateOrCreate(
-            [
-                'user_id' => $user->id,
-                'clip_id' => $request->clip_id
-            ],
+            ['user_id' => $user->id, 'clip_id' => $request->clip_id],
             [
                 'watched' => true,
                 'answered_correctly' => $isCorrect,
@@ -91,12 +92,22 @@ class ClipController extends Controller
             ]
         );
 
-        // AQUÍ PODRÍAS SUMAR PUNTOS AL USUARIO EN EL FUTURO
-        // if ($isCorrect) { $user->increment('points', 10); }
+        // LÓGICA DE PUNTOS:
+        // Solo sumamos si es correcta Y si es la primera vez que responde este video
+        $pointsEarned = 0;
+        
+        if ($isCorrect && !$alreadyAnswered) {
+            // Buscamos cuántos puntos vale la pregunta asociada
+            $questionPoints = $option->question->points ?? 10; // Default 10
+            
+            $user->increment('score', $questionPoints);
+            $pointsEarned = $questionPoints;
+        }
 
         return response()->json([
             'correct' => $isCorrect,
-            'correct_option_id' => $isCorrect ? null : Option::where('question_id', $option->question_id)->where('is_correct', true)->value('id'),
+            'points_earned' => $pointsEarned, // Devolvemos esto para mostrarlo en el frontend si queremos
+            'total_score' => $user->fresh()->score, // Puntaje actualizado
             'message' => $isCorrect ? '¡Correcto!' : 'Ups, casi.'
         ]);
     }

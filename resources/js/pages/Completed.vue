@@ -32,9 +32,9 @@ import { CheckCircle, Trophy } from 'lucide-vue-next';
                 <p class="text-right text-xs text-gray-500 mt-2">100%</p>
             </div>
 
-            <button 
-                disabled
+            <button                 
                 class="w-full py-4 rounded-xl bg-gray-700 text-gray-400 font-bold cursor-not-allowed opacity-50"
+                @click="$router.push('/dashboard')"
             >
                 Vuelve mañana por más
             </button>

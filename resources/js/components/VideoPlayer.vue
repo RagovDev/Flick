@@ -1,22 +1,24 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue';
-// Importamos todos los iconos necesarios, incluido 'Brain'
-import { Volume2, VolumeX, Heart, Type, Play, Brain } from 'lucide-vue-next';
+import { Link } from '@inertiajs/vue3'; 
+import { Volume2, VolumeX, Heart, Type, Play, Brain, User } from 'lucide-vue-next';
 
+// Props
 const props = defineProps({
     clip: Object,
+    score: Number 
 });
 
-// Definimos el evento para avisarle al padre (Player.vue) que abra el quiz
 const emit = defineEmits(['open-quiz']);
 
+// Variables reactivas
 const videoRef = ref(null);
 const currentTime = ref(0);
-const isMuted = ref(true); // Iniciamos muteado para mejorar probabilidad de autoplay
+const isMuted = ref(true); 
 const showSubs = ref(true);
-const isPlaying = ref(false); // Estado para saber si mostrar el botón de Play
+const isPlaying = ref(false); 
 
-// Lógica de Subtítulos: Busca qué texto corresponde al segundo actual
+// Lógica de Subtítulos
 const currentSubtitle = computed(() => {
     if (!props.clip.transcript_json || !showSubs.value) return null;
     
@@ -25,14 +27,14 @@ const currentSubtitle = computed(() => {
     );
 });
 
-// Actualizar tiempo actual del video
+// Actualizar tiempo
 const handleTimeUpdate = () => {
     if (videoRef.value) currentTime.value = videoRef.value.currentTime;
 };
 
 // Toggle Mute
 const toggleMute = (e) => {
-    e?.stopPropagation(); // Evitar que el click pause el video si se hace click en el botón
+    e?.stopPropagation(); 
     if (videoRef.value) {
         videoRef.value.muted = !videoRef.value.muted;
         isMuted.value = videoRef.value.muted;
@@ -45,7 +47,7 @@ const toggleSubs = (e) => {
     showSubs.value = !showSubs.value;
 };
 
-// Lógica Principal de Play/Pause
+// Toggle Play
 const togglePlay = () => {
     if (!videoRef.value) return;
 
@@ -59,15 +61,14 @@ const togglePlay = () => {
     }
 };
 
-// Intentar Autoplay al montar o cambiar de video
+// Autoplay
 onMounted(() => {
     attemptAutoplay();
 });
 
-// Si cambia el clip (props), re-intentar autoplay
 watch(() => props.clip, () => {
-    isPlaying.value = false; // Resetear estado visual
-    setTimeout(attemptAutoplay, 100); // Pequeño delay para que el DOM actualice
+    isPlaying.value = false; 
+    setTimeout(attemptAutoplay, 100); 
 });
 
 const attemptAutoplay = () => {
@@ -77,14 +78,12 @@ const attemptAutoplay = () => {
         if (playPromise !== undefined) {
             playPromise
                 .then(() => {
-                    // Autoplay exitoso
                     isPlaying.value = true;
                 })
                 .catch(() => {
-                    // Autoplay bloqueado por el navegador
-                    console.log("Autoplay bloqueado. Esperando interacción.");
+                    console.log("Autoplay bloqueado.");
                     isPlaying.value = false;
-                    videoRef.value.muted = true; // Asegurar mute
+                    videoRef.value.muted = true; 
                 });
         }
     }
@@ -94,6 +93,21 @@ const attemptAutoplay = () => {
 <template>
     <div class="relative w-full h-full bg-black overflow-hidden group">
         
+        <div class="absolute top-6 left-6 z-30 flex items-center gap-2 bg-black/40 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10 transition-all hover:bg-black/60">
+            <div class="w-3 h-3 bg-yellow-400 rounded-full animate-pulse shadow-[0_0_10px_rgba(250,204,21,0.8)]"></div>
+            <span class="text-white font-bold text-sm font-mono tracking-widest">
+                {{ score }} PTS
+            </span>
+        </div>
+
+        <Link 
+            href="/dashboard" 
+            class="absolute top-6 right-6 z-30 p-2 bg-black/40 backdrop-blur-md rounded-full border border-white/10 text-white hover:bg-white/20 transition hover:scale-105 active:scale-95"
+            title="Ir a mi perfil"
+        >
+            <User :size="24" stroke-width="2.5" />
+        </Link>
+
         <video 
             ref="videoRef"
             :key="clip.video_url"

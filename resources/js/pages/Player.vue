@@ -1,6 +1,6 @@
 <script setup>
 import { ref } from 'vue';
-import { Head, router } from '@inertiajs/vue3'; // Importamos 'router' para poder recargar
+import { Head, router, usePage } from '@inertiajs/vue3'; // <--- 1. Importar usePage
 import VideoPlayer from '@/components/VideoPlayer.vue';
 import QuizOverlay from '@/components/QuizOverlay.vue';
 import axios from 'axios';
@@ -9,62 +9,57 @@ const props = defineProps({
     initialClip: Object
 });
 
+// <--- 2. Inicializamos el puntaje con lo que tiene el usuario al entrar
+const page = usePage();
+const userScore = ref(page.props.auth.user.score); 
+
 const currentClip = ref(props.initialClip);
 const showQuiz = ref(false);
 const isLoadingNext = ref(false);
 
-// Acciones del Quiz
 const openQuiz = () => showQuiz.value = true;
 const closeQuiz = () => showQuiz.value = false;
 
-// Manejar Respuesta
 const handleAnswer = async (option) => {
     try {
-        // 1. Enviamos la respuesta al backend (sin importar si es correcta o no)
-        await axios.post('/flick/check', {
+        // Guardamos la respuesta en una variable para leer lo que devuelve el backend
+        const response = await axios.post('/flick/check', {
             clip_id: currentClip.value.id,
             option_id: option.id
         });
 
-        // 2. Avanzamos inmediatamente al siguiente video
+        // <--- 3. EL TRUCO REACTIVO:
+        // El backend nos devuelve 'total_score' actualizado. Lo asignamos a nuestra variable.
+        // Vue detecta el cambio y actualiza el HUD instantáneamente.
+        if (response.data.total_score) {
+            userScore.value = response.data.total_score;
+        }
+
         loadNextVideo();
 
     } catch (error) {
         console.error("Error al responder:", error);
-        alert("Error guardando respuesta. Revisa la consola.");
+        alert("Error guardando respuesta.");
     }
 };
 
-// Cargar Siguiente Video (Lógica de Infinite Scroll)
 const loadNextVideo = async () => {
     isLoadingNext.value = true;
-    showQuiz.value = false; // Aseguramos que el quiz se cierre
+    showQuiz.value = false;
 
     try {
         const response = await axios.get('/flick/next');
         
-        // Si el status es 204 (No Content) o viene vacío, es que se acabaron los videos
         if (response.status === 204 || !response.data) {
-            
-            // LA MAGIA: Recargamos la página ('/flick').
-            // Al recargar, Laravel ejecutará el controlador 'index()', verá que 
-            // no quedan videos pendientes y cargará el componente 'Completed.vue'.
-            router.visit('/flick', {
-                replace: true, // Reemplaza el historial para que no puedan volver atrás
-            });
-
+            router.visit('/flick', { replace: true });
         } else {
-            // Verificación de seguridad por si el servidor devuelve el mismo
             if (response.data.id === currentClip.value.id) {
-                console.warn("⚠️ El servidor devolvió el mismo video.");
+                console.warn("⚠️ Mismo video recibido.");
             }
-            
-            // Reemplazamos el clip actual. Al cambiar esta variable,
-            // el componente VideoPlayer se reinicia gracias al :key="clip.video_url"
             currentClip.value = response.data;
         }
     } catch (error) {
-        console.error("Error cargando siguiente video:", error);
+        console.error("Error cargando siguiente:", error);
     } finally {
         isLoadingNext.value = false;
     }
@@ -79,6 +74,7 @@ const loadNextVideo = async () => {
             
             <VideoPlayer 
                 :clip="currentClip" 
+                :score="userScore"
                 @open-quiz="openQuiz" 
             />
 
