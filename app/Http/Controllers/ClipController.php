@@ -14,26 +14,26 @@ class ClipController extends Controller
 {
     /**
      * Muestra la vista principal (El reproductor).
-     * Carga el primer video disponible para Inertia.
      */
     public function index()
     {
-        // Reutilizamos la lógica de obtener un video
         $clip = $this->fetchNextClip();
 
         if (!$clip) {
-            // Si no hay videos, mostramos una pantalla de "Todo completado"
-            return Inertia::render('Completed'); 
+            // Si ya vio todo, lo mandamos al Dashboard para que vea su trofeo
+            return redirect()->route('dashboard'); 
         }
 
-        return Inertia::render('Player', [
-            'initialClip' => $clip
+        // CORRECCIÓN IMPORTANTE:
+        // Pasamos 'userScore' para que el HUD muestre los puntos al cargar la página.
+        return Inertia::render('Player', [ 
+            'initialClip' => $clip,
+            'userScore' => Auth::user()->score, 
         ]);
     }
 
     /**
      * API Endpoint: Devuelve el siguiente video en formato JSON.
-     * Usado por Vue.js para cargar el siguiente video en segundo plano (infinite scroll).
      */
     public function getNext()
     {
@@ -47,25 +47,10 @@ class ClipController extends Controller
     }
 
     /**
-     * Lógica privada para buscar un video no visto.
+     * Valida la respuesta del usuario y suma puntos.
+     * (Renombrado a 'check' para coincidir con routes/web.php)
      */
-    private function fetchNextClip()
-    {
-        $userId = Auth::id();
-
-        return Clip::with(['questions.options']) // Cargamos preguntas y opciones
-            ->whereDoesntHave('userProgress', function ($query) use ($userId) {
-                // Filtro: Donde NO exista un registro de progreso para este usuario
-                $query->where('user_id', $userId);
-            })
-            ->inRandomOrder() // Para que no sea aburrido
-            ->first();
-    }
-
-    /**
-     * Valida la respuesta del usuario.
-     */
-    public function checkAnswer(Request $request)
+    public function check(Request $request)
     {
         $request->validate([
             'clip_id' => 'required|exists:clips,id',
@@ -93,12 +78,12 @@ class ClipController extends Controller
         );
 
         // LÓGICA DE PUNTOS:
-        // Solo sumamos si es correcta Y si es la primera vez que responde este video
         $pointsEarned = 0;
         
+        // Solo sumamos si es correcta Y si es la primera vez que responde este video
         if ($isCorrect && !$alreadyAnswered) {
-            // Buscamos cuántos puntos vale la pregunta asociada
-            $questionPoints = $option->question->points ?? 10; // Default 10
+            // Buscamos cuántos puntos vale la pregunta asociada (o 10 por defecto)
+            $questionPoints = $option->question->points ?? 10; 
             
             $user->increment('score', $questionPoints);
             $pointsEarned = $questionPoints;
@@ -106,9 +91,25 @@ class ClipController extends Controller
 
         return response()->json([
             'correct' => $isCorrect,
-            'points_earned' => $pointsEarned, // Devolvemos esto para mostrarlo en el frontend si queremos
-            'total_score' => $user->fresh()->score, // Puntaje actualizado
+            'points_earned' => $pointsEarned,
+            'total_score' => $user->fresh()->score, // Devolvemos el puntaje actualizado para que Vue lo lea
             'message' => $isCorrect ? '¡Correcto!' : 'Ups, casi.'
         ]);
+    }
+
+    /**
+     * Lógica privada para buscar un video no visto.
+     */
+    private function fetchNextClip()
+    {
+        $userId = Auth::id();
+
+        return Clip::with(['questions.options']) // Cargamos preguntas y opciones
+            ->whereDoesntHave('userProgress', function ($query) use ($userId) {
+                // Filtro: Donde NO exista un registro de progreso para este usuario
+                $query->where('user_id', $userId);
+            })
+            ->inRandomOrder() 
+            ->first();
     }
 }

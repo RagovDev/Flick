@@ -2,6 +2,7 @@
 import { Head, Link } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/layouts/AuthLayout.vue'; // Apunta al archivo que acabamos de arreglar
 import { Trophy, Video, Star, PlayCircle, Zap } from 'lucide-vue-next';
+import { route } from 'ziggy-js';
 
 const props = defineProps({
     auth: Object,
@@ -17,7 +18,7 @@ const props = defineProps({
         <template #header>
             <div class="flex justify-between items-center">
                 <h2 class="font-bold text-xl text-gray-200 leading-tight">Centro de Mando</h2>
-                <Link href="/flick" class="bg-yellow-400 hover:bg-yellow-500 text-black font-bold py-2 px-4 rounded-full flex items-center gap-2 transition hover:scale-105">
+                <Link :href="route('flick.index')"  class="bg-yellow-400 hover:bg-yellow-500 text-black font-bold py-2 px-4 rounded-full flex items-center gap-2 transition hover:scale-105">
                     <PlayCircle size="20" />
                     <span>Continuar Aprendiendo</span>
                 </Link>

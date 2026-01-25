@@ -1,10 +1,11 @@
 <script setup>
 import { Link, router } from '@inertiajs/vue3';
 import { User, LogOut } from 'lucide-vue-next';
+import { route } from 'ziggy-js';
 
 const logout = () => {
     // Usamos la URL directa para evitar errores de 'route'
-    router.post('/logout');
+    router.post(route('logout'));
 };
 </script>
 
@@ -16,7 +17,7 @@ const logout = () => {
                     
                     <div class="flex">
                         <div class="shrink-0 flex items-center">
-                            <Link href="/dashboard">
+                            <Link :href="route('dashboard')">
                                 <div class="w-8 h-8 bg-yellow-400 rounded-lg flex items-center justify-center font-bold text-black">
                                     F
                                 </div>
@@ -25,7 +26,7 @@ const logout = () => {
 
                         <div class="hidden space-x-8 sm:-my-px sm:ml-10 sm:flex">
                             <Link 
-                                href="/dashboard" 
+                                :href="route('dashboard')" 
                                 class="inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium leading-5 transition duration-150 ease-in-out focus:outline-none"
                                 :class="$page.url === '/dashboard' ? 'border-yellow-400 text-white' : 'border-transparent text-gray-300 hover:text-white hover:border-gray-300'"
                             >
@@ -33,7 +34,7 @@ const logout = () => {
                             </Link>
                             
                             <Link 
-                                href="/flick" 
+                                :href="route('flick.index')" 
                                 class="inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium leading-5 transition duration-150 ease-in-out focus:outline-none"
                                 :class="$page.url === '/flick' ? 'border-yellow-400 text-white' : 'border-transparent text-gray-300 hover:text-white hover:border-gray-300'"
                             >
