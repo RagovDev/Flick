@@ -1,46 +1,94 @@
 <script setup>
 import { ref } from 'vue';
-import { Head, router, usePage } from '@inertiajs/vue3'; // <--- 1. Importar usePage
+import { Head, router, usePage } from '@inertiajs/vue3';
 import VideoPlayer from '@/components/VideoPlayer.vue';
 import QuizOverlay from '@/components/QuizOverlay.vue';
 import axios from 'axios';
+// 1. Importamos la librería de fiesta
+import confetti from 'canvas-confetti';
 
 const props = defineProps({
     initialClip: Object
 });
 
-// <--- 2. Inicializamos el puntaje con lo que tiene el usuario al entrar
 const page = usePage();
 const userScore = ref(page.props.auth.user.score); 
-
 const currentClip = ref(props.initialClip);
 const showQuiz = ref(false);
 const isLoadingNext = ref(false);
+
+// Variable para el efecto de temblor
+const isShaking = ref(false);
+
+// 2. Pre-cargamos los sonidos (Usando URLs públicas para prueba rápida)
+const soundCorrect = new Audio('/audio/quiz/soundCorrect.mp3'); // Ding suave
+const soundWrong = new Audio('/audio/quiz/soundWrong.mp3'); // Error sutil
+soundCorrect.volume = 0.5;
+soundWrong.volume = 0.4;
 
 const openQuiz = () => showQuiz.value = true;
 const closeQuiz = () => showQuiz.value = false;
 
 const handleAnswer = async (option) => {
     try {
-        // Guardamos la respuesta en una variable para leer lo que devuelve el backend
         const response = await axios.post('/flick/check', {
             clip_id: currentClip.value.id,
             option_id: option.id
         });
 
-        // <--- 3. EL TRUCO REACTIVO:
-        // El backend nos devuelve 'total_score' actualizado. Lo asignamos a nuestra variable.
-        // Vue detecta el cambio y actualiza el HUD instantáneamente.
-        if (response.data.total_score) {
-            userScore.value = response.data.total_score;
-        }
+        if (response.data.correct) {
+            // --- CASO: ACIERTO ---
+            
+            // A. Sonido de victoria
+            soundCorrect.currentTime = 0;
+            soundCorrect.play().catch(e => console.log('Audio bloqueado por navegador', e));
 
-        loadNextVideo();
+            // B. Explosión de Confeti
+            confetti({
+                particleCount: 100,
+                spread: 70,
+                origin: { y: 0.6 },
+                colors: ['#FACC15', '#ffffff', '#00ff00'] // Amarillo, Blanco, Verde
+            });
+
+            // C. Actualizar puntos
+            if (response.data.total_score) {
+                userScore.value = response.data.total_score;
+            }
+
+            // D. Esperar un momento para celebrar antes de cambiar
+            setTimeout(() => {
+                loadNextVideo();
+            }, 1500); // 1.5 segundos de gloria
+
+        } else {
+            // --- CASO: ERROR ---
+            
+            // A. Sonido de error
+            soundWrong.currentTime = 0;
+            soundWrong.play().catch(e => console.log('Audio bloqueado', e));
+
+            // B. Efecto Shake (Temblor)
+            triggerShake();
+
+            // C. (Opcional) Cerrar el quiz o dejarlo para que intente de nuevo
+            // Por ahora cerramos para no frustrar, pero no cargamos el siguiente video inmediatamente
+            // o dejamos que el usuario lo cierre manualmente.
+            // Para mantener el flujo rápido:
+            setTimeout(() => {
+               showQuiz.value = false;
+               loadNextVideo();
+            }, 1000);
+        }
 
     } catch (error) {
         console.error("Error al responder:", error);
-        alert("Error guardando respuesta.");
     }
+};
+
+const triggerShake = () => {
+    isShaking.value = true;
+    setTimeout(() => isShaking.value = false, 500); // El temblor dura 0.5s
 };
 
 const loadNextVideo = async () => {
@@ -51,7 +99,9 @@ const loadNextVideo = async () => {
         const response = await axios.get('/flick/next');
         
         if (response.status === 204 || !response.data) {
-            router.visit('/flick', { replace: true });
+            // router.visit('/dashboard', { replace: true }); // Descomenta esto cuando quieras redirigir al final
+             alert("¡Has visto todos los videos disponibles! Vuelve pronto.");
+             router.visit('/dashboard');
         } else {
             if (response.data.id === currentClip.value.id) {
                 console.warn("⚠️ Mismo video recibido.");
@@ -70,7 +120,11 @@ const loadNextVideo = async () => {
     <Head title="Flick" />
 
     <div class="h-screen w-full bg-gray-900 flex justify-center overflow-hidden">
-        <div class="w-full max-w-md h-full bg-black relative shadow-2xl overflow-hidden group">
+        
+        <div 
+            class="w-full max-w-md h-full bg-black relative shadow-2xl overflow-hidden group"
+            :class="{ 'shake-animation': isShaking }"
+        >
             
             <VideoPlayer 
                 :clip="currentClip" 
@@ -102,3 +156,17 @@ const loadNextVideo = async () => {
         </div>
     </div>
 </template>
+
+<style scoped>
+/* Animación de Temblor (Shake) */
+.shake-animation {
+  animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
+}
+
+@keyframes shake {
+  10%, 90% { transform: translate3d(-1px, 0, 0); }
+  20%, 80% { transform: translate3d(2px, 0, 0); }
+  30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+  40%, 60% { transform: translate3d(4px, 0, 0); }
+}
+</style>
