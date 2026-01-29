@@ -29,20 +29,25 @@ class DashboardController extends Controller
 
         // 3. Obtener historial reciente (últimos 5 videos vistos)
         $history = UserProgress::with('clip')
-            ->where('user_id', $user->id)
-            ->where('watched', true)
-            ->latest('viewed_at')
-            ->take(5)
-            ->get()
-            ->map(function ($progress) {
-                return [
-                    'id' => $progress->clip->id,
-                    'title' => $progress->clip->title,
-                    'thumbnail' => '/storage/thumbnails/' . $progress->clip->id . '.jpg', // Placeholder
-                    'score' => $progress->answered_correctly ? 'Acertado' : 'Visto',
-                    'date' => $progress->viewed_at, // Carbon instance
-                ];
-            });
+    ->where('user_id', $user->id)
+    ->where('watched', true)
+    ->latest('viewed_at')
+    ->take(5)
+    ->get()
+    ->map(function ($progress) {
+        return [
+            // CORRECCIÓN 1: Usamos el ID del progreso para el key único de Vue (evita errores si ves el mismo video 2 veces)
+            'id' => $progress->id, 
+
+            // CORRECCIÓN 2: Agregamos explícitamente clip_id para que la ruta funcione
+            'clip_id' => $progress->clip->id, 
+
+            'title' => $progress->clip->title,
+            'thumbnail' => '/storage/thumbnails/' . $progress->clip->id . '.jpg',
+            'score' => $progress->answered_correctly ? 'Acertado' : 'Visto',
+            'date' => $progress->viewed_at,
+        ];
+    });
 
         return Inertia::render('Dashboard', [
             'stats' => [

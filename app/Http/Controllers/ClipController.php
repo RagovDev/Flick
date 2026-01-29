@@ -112,4 +112,21 @@ class ClipController extends Controller
             ->inRandomOrder() 
             ->first();
     }
+
+    /**
+     * Muestra un video específico para repaso (Modo Práctica).
+     */
+    public function show($id)
+    {
+        // Buscamos el video por ID con sus preguntas
+        $clip = Clip::with('questions.options')->findOrFail($id);
+
+        // Reutilizamos la vista del reproductor (Flick/Index o Player)
+        // pero le pasamos una bandera 'isPracticeMode'
+        return Inertia::render('Player', [ // Ojo: Asegúrate que coincida con tu archivo Vue ('Player' o 'Flick/Index')
+            'initialClip' => $clip,
+            'userScore' => Auth::user()->score,
+            'isPracticeMode' => true, 
+        ]);
+    }
 }

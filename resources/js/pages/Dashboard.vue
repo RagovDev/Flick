@@ -1,7 +1,8 @@
 <script setup>
 import { Head, Link } from '@inertiajs/vue3';
-import AuthenticatedLayout from '@/layouts/AuthLayout.vue'; // Apunta al archivo que acabamos de arreglar
-import { Trophy, Video, Star, PlayCircle, Zap } from 'lucide-vue-next';
+import AuthenticatedLayout from '@/layouts/AuthLayout.vue'; 
+// Agregamos 'Play' a los iconos importados
+import { Trophy, Video, Star, PlayCircle, Zap, Play } from 'lucide-vue-next';
 import { route } from 'ziggy-js';
 
 const props = defineProps({
@@ -18,7 +19,7 @@ const props = defineProps({
         <template #header>
             <div class="flex justify-between items-center">
                 <h2 class="font-bold text-xl text-gray-200 leading-tight">Centro de Mando</h2>
-                <Link :href="route('flick.index')"  class="bg-yellow-400 hover:bg-yellow-500 text-black font-bold py-2 px-4 rounded-full flex items-center gap-2 transition hover:scale-105">
+                <Link :href="route('flick.index')"  class="bg-yellow-400 hover:bg-yellow-500 text-black font-bold py-2 px-4 rounded-full flex items-center gap-2 transition hover:scale-105 shadow-[0_0_15px_rgba(250,204,21,0.4)]">
                     <PlayCircle size="20" />
                     <span>Continuar Aprendiendo</span>
                 </Link>
@@ -28,11 +29,11 @@ const props = defineProps({
         <div class="py-12">
             <div class="max-w-7xl mx-auto sm:px-6 lg:px-8 space-y-8">
                 
-                <div class="bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg border border-gray-700 p-8 relative">
+                <div class="bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg border border-gray-700 p-8 relative group">
                     <div class="flex flex-col md:flex-row items-center gap-8 relative z-10">
                         <div class="relative">
-                            <div class="absolute inset-0 bg-yellow-500 blur-2xl opacity-20 rounded-full"></div>
-                            <Trophy class="text-yellow-400 w-24 h-24 relative z-10" />
+                            <div class="absolute inset-0 bg-yellow-500 blur-2xl opacity-20 rounded-full group-hover:opacity-30 transition duration-700"></div>
+                            <Trophy class="text-yellow-400 w-24 h-24 relative z-10 drop-shadow-[0_0_10px_rgba(250,204,21,0.5)]" />
                         </div>
                         
                         <div class="flex-1 w-full text-center md:text-left">
@@ -42,8 +43,8 @@ const props = defineProps({
                                 <span class="text-yellow-500 font-bold text-xl mb-2">Novato del Inglés</span>
                             </div>
                             
-                            <div class="w-full bg-gray-700 rounded-full h-4 mb-2 overflow-hidden">
-                                <div class="bg-gradient-to-r from-yellow-600 to-yellow-400 h-4 rounded-full transition-all duration-1000" :style="{ width: (stats?.progress_percent || 0) + '%' }"></div>
+                            <div class="w-full bg-gray-700 rounded-full h-4 mb-2 overflow-hidden border border-gray-600">
+                                <div class="bg-gradient-to-r from-yellow-600 to-yellow-400 h-4 rounded-full transition-all duration-1000 shadow-[0_0_10px_rgba(250,204,21,0.5)]" :style="{ width: (stats?.progress_percent || 0) + '%' }"></div>
                             </div>
                             <div class="flex justify-between text-xs text-gray-400 font-mono">
                                 <span>{{ auth.user.score }} XP Totales</span>
@@ -54,7 +55,7 @@ const props = defineProps({
                 </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 flex items-center gap-4">
+                    <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 flex items-center gap-4 hover:border-blue-500/50 transition duration-300">
                         <div class="p-4 bg-blue-500/10 rounded-lg text-blue-400">
                             <Video size="32" />
                         </div>
@@ -64,7 +65,7 @@ const props = defineProps({
                         </div>
                     </div>
 
-                    <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 flex items-center gap-4">
+                    <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 flex items-center gap-4 hover:border-purple-500/50 transition duration-300">
                         <div class="p-4 bg-purple-500/10 rounded-lg text-purple-400">
                             <Star size="32" />
                         </div>
@@ -74,7 +75,7 @@ const props = defineProps({
                         </div>
                     </div>
 
-                    <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 flex items-center gap-4">
+                    <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 flex items-center gap-4 hover:border-green-500/50 transition duration-300">
                         <div class="p-4 bg-green-500/10 rounded-lg text-green-400">
                             <Zap size="32" />
                         </div>
@@ -89,28 +90,44 @@ const props = defineProps({
                     <div class="p-6">
                         <h3 class="text-lg font-bold text-white mb-4">Actividad Reciente</h3>
                         
-                        <div v-if="!history || history.length === 0" class="text-gray-500 italic text-center py-4">
-                            Aún no has visto videos. ¡Ve a aprender!
+                        <div v-if="!history || history.length === 0" class="text-gray-500 italic text-center py-8 bg-gray-900/30 rounded-lg border border-dashed border-gray-700">
+                            <p>Aún no has visto videos.</p>
+                            <Link :href="route('flick.index')" class="text-yellow-400 hover:underline mt-2 inline-block">
+                                ¡Empieza ahora!
+                            </Link>
                         </div>
 
-                        <div v-else class="space-y-4">
-                            <div v-for="item in history" :key="item.id" class="flex items-center justify-between bg-gray-900/50 p-4 rounded-lg border border-gray-700/50 transition hover:border-gray-500">
+                        <div v-else class="space-y-3">
+                            <Link 
+                                v-for="item in history" 
+                                :key="item.id" 
+                                :href="route('flick.show', item.clip_id)" 
+                                class="group flex items-center justify-between bg-gray-900/50 p-4 rounded-lg border border-gray-700/50 transition-all duration-300 hover:border-yellow-500/50 hover:bg-gray-800 hover:shadow-[0_0_15px_rgba(250,204,21,0.1)] cursor-pointer"
+                            >
                                 <div class="flex items-center gap-4">
-                                    <div class="h-10 w-10 bg-gray-700 rounded flex items-center justify-center text-gray-500 text-xs font-bold">
-                                        VIDEO
+                                    <div class="h-12 w-12 bg-gray-800 rounded-lg flex items-center justify-center text-gray-500 border border-gray-700 group-hover:border-yellow-400 group-hover:text-yellow-400 group-hover:bg-yellow-400/10 transition-all duration-300">
+                                        <span class="text-[10px] font-bold group-hover:hidden">VIDEO</span>
+                                        <Play size="20" class="hidden group-hover:block ml-1" fill="currentColor" />
                                     </div>
+                                    
                                     <div>
-                                        <h4 class="text-white font-medium">{{ item.title }}</h4>
-                                        <span class="text-xs text-gray-500">Completado recientemente</span>
+                                        <h4 class="text-white font-medium group-hover:text-yellow-400 transition-colors">{{ item.title }}</h4>
+                                        <div class="flex items-center gap-2">
+                                            <span class="text-xs text-gray-500">Repaso disponible</span>
+                                            <span class="w-1.5 h-1.5 rounded-full bg-gray-600 group-hover:bg-yellow-500 transition-colors"></span>
+                                        </div>
                                     </div>
                                 </div>
+                                
                                 <span 
-                                    class="px-3 py-1 text-xs font-bold rounded-full"
-                                    :class="item.score === 'Acertado' ? 'bg-green-500/20 text-green-400' : 'bg-gray-700 text-gray-400'"
+                                    class="px-3 py-1 text-xs font-bold rounded-full border"
+                                    :class="item.score === 'Acertado' 
+                                        ? 'bg-green-500/10 text-green-400 border-green-500/20' 
+                                        : 'bg-red-500/10 text-red-400 border-red-500/20'"
                                 >
                                     {{ item.score }}
                                 </span>
-                            </div>
+                            </Link>
                         </div>
                     </div>
                 </div>

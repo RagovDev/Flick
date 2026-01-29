@@ -6,16 +6,8 @@ use Laravel\Fortify\Features;
 use App\Http\Controllers\ClipController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\AdminClipController;
+use App\Http\Controllers\VocabularyController;
 
-// Grupo de rutas para Admin
-Route::middleware(['auth', 'verified'])->prefix('admin')->group(function () {
-    
-    // Formulario de creación
-    Route::get('/upload', [AdminClipController::class, 'create'])->name('admin.create');
-    
-    // Guardar datos
-    Route::post('/upload', [AdminClipController::class, 'store'])->name('admin.store');
-});
 
 Route::get('/', function () {
     return Inertia::render('Welcome', [
@@ -23,26 +15,52 @@ Route::get('/', function () {
     ]);
 })->name('home');
 
-// Route::get('dashboard', function () {
-//     return Inertia::render('Dashboard_old');
-// })->middleware(['auth', 'verified'])->name('dashboard');
 
-Route::get('/dashboard', [DashboardController::class, 'index'])
-    ->middleware(['auth', 'verified'])
-    ->name('dashboard');
+Route::middleware(['auth', 'verified'])->group(function (){
+    # -----------------------------------
+    #   Admin
+    # -----------------------------------
 
+    // Formulario de creación
+    Route::get('/admin/upload', [AdminClipController::class, 'create'])->name('admin.create');
+    
+    // Guardar datos
+    Route::post('/admin/upload', [AdminClipController::class, 'store'])->name('admin.store');
 
-Route::middleware(['auth', 'verified'])->prefix('flick')->name('flick.')->group(function () {
-    // 1. La página principal donde vive la app
-    Route::get('/', [ClipController::class, 'index'])->name('index');
+    # -----------------------------------
+    #   Dashboard
+    # -----------------------------------
 
-    // 2. Endpoint para pedir el siguiente video (AJAX/Fetch)
-    Route::get('/next', [ClipController::class, 'getNext'])->name('next');
+    // Dashboard
+    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
-    // 3. Endpoint para enviar la respuesta
-    Route::post('/check', [ClipController::class, 'check'])->name('check');
+    # -----------------------------------
+    #   Flick (Reproductor)
+    # -----------------------------------
+
+    // La página principal donde vive la app
+    Route::get('/flick', [ClipController::class, 'index'])->name('flick.index');
+
+    // 2Endpoint para pedir el siguiente video (AJAX/Fetch)
+    Route::get('/flick/next', [ClipController::class, 'getNext'])->name('flick.next');
+
+    // Endpoint para enviar la respuesta
+    Route::post('/flick/check', [ClipController::class, 'check'])->name('flick.check');
+
+    // Para ver un video especifico (replay)
+    Route::get('flick/watch/{id}', [ClipController::class, 'show'])->name('flick.show');
+
+    # -----------------------------------
+    #   Vocabulario
+    # -----------------------------------
+
+    // Ruta para guardar palabras desde el video
+    Route::post('/vocabulary/save', [VocabularyController::class, 'store'])->name('vocabulary.save');
+
+    // Ruta para ver mis palabras (Flashcards)
+    Route::get('/vocabulary', [VocabularyController::class, 'index'])->name('vocabulary.index');
+
 });
-
 
 require __DIR__.'/settings.php';
 

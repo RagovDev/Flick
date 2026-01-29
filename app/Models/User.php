@@ -49,4 +49,12 @@ class User extends Authenticatable
             'two_factor_confirmed_at' => 'datetime',
         ];
     }
+
+    // Relación: Las palabras que el usuario está aprendiendo
+    public function words()
+    {
+        return $this->belongsToMany(Word::class, 'word_user')
+            ->withPivot(['mastery_level', 'next_review_at', 'review_count'])
+            ->withTimestamps();
+    }
 }
