@@ -38,7 +38,7 @@ const getLevelColor = (level) => {
             <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
                 
                 <div class="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
-                    <div class="flex gap-4">
+                    <div class="flex flex-wrap gap-4 items-center">
                         <div class="bg-gray-800 px-4 py-2 rounded-lg border border-gray-700 flex items-center gap-3">
                             <BookOpen class="text-blue-400" size="20" />
                             <div>
@@ -46,13 +46,15 @@ const getLevelColor = (level) => {
                                 <span class="text-xs text-gray-400">Palabras</span>
                             </div>
                         </div>
-                        <div class="bg-gray-800 px-4 py-2 rounded-lg border border-gray-700 flex items-center gap-3">
-                            <Brain class="text-yellow-400" size="20" />
-                            <div>
-                                <span class="block text-xl font-bold text-white">0</span>
-                                <span class="text-xs text-gray-400">Repasos Pendientes</span>
-                            </div>
-                        </div>
+                        
+                        <Link 
+                            :href="route('vocabulary.practice')"
+                            class="bg-yellow-400 hover:bg-yellow-500 text-black px-5 py-2 rounded-lg font-bold flex items-center gap-2 shadow-lg shadow-yellow-400/20 transition hover:scale-105"
+                            v-if="words.length > 0"
+                        >
+                            <Brain size="20" />
+                            <span>Practicar Ahora</span>
+                        </Link>
                     </div>
 
                     <div class="relative w-full md:w-64">
@@ -72,7 +74,7 @@ const getLevelColor = (level) => {
                     </div>
                     <h3 class="text-white font-bold text-lg">No encontramos palabras</h3>
                     <p class="text-gray-400 text-sm mt-2">Ve a ver videos y toca los subtítulos para guardar palabras.</p>
-                    <Link href="/flick" class="mt-4 inline-block text-yellow-400 hover:underline font-bold">
+                    <Link :href="route('flick.index')" class="mt-4 inline-block text-yellow-400 hover:underline font-bold">
                         Ir a Aprender &rarr;
                     </Link>
                 </div>

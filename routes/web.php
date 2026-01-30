@@ -60,6 +60,9 @@ Route::middleware(['auth', 'verified'])->group(function (){
     // Ruta para ver mis palabras (Flashcards)
     Route::get('/vocabulary', [VocabularyController::class, 'index'])->name('vocabulary.index');
 
+    // Ruta modo practica
+    Route::get('/vocabulary/practice', [VocabularyController::class, 'practice'])->name('vocabulary.practice');
+
 });
 
 require __DIR__.'/settings.php';

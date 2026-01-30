@@ -97,4 +97,29 @@ class VocabularyController extends Controller
             'words' => $words
         ]);
     }
+
+    /**
+     * Modo Práctica: Devuelve palabras aleatorias para repasar.
+     */
+    public function practice()
+    {
+        // Obtenemos hasta 10 palabras aleatorias del usuario
+        // Idealmente aquí filtraríamos por 'next_review_at', pero para el MVP usamos random
+        $words = Auth::user()->words()
+            ->inRandomOrder()
+            ->limit(10)
+            ->get()
+            ->map(function ($word) {
+                return [
+                    'id' => $word->id,
+                    'term' => $word->term,
+                    'translation' => $word->translation,
+                    'level' => $word->pivot->mastery_level,
+                ];
+            });
+
+        return Inertia::render('Vocabulary/Practice', [
+            'words' => $words
+        ]);
+    }
 }

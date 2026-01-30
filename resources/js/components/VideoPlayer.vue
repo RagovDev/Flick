@@ -1,7 +1,8 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue';
 import { Link } from '@inertiajs/vue3'; 
-import { Volume2, VolumeX, Heart, Type, Play, Brain, User } from 'lucide-vue-next';
+// Agregamos 'Pause' a los iconos importados
+import { Volume2, VolumeX, Heart, Type, Play, Pause, Brain, User, CheckCircle, X } from 'lucide-vue-next';
 import SmartSubtitle from '@/components/SmartSubtitle.vue';
 
 const props = defineProps({
@@ -11,20 +12,20 @@ const props = defineProps({
 
 const emit = defineEmits(['open-quiz']);
 
-// Referencias y Estado
+// Refs y Estado
 const videoRef = ref(null);
 const currentTime = ref(0);
 const isMuted = ref(true); 
 const showSubs = ref(true);
 const isPlaying = ref(false);
-
-// NUEVO: Estado para saber si pausamos para estudiar una palabra
-// Si es true, NO mostramos el botón gigante de Play
 const pausedByInteraction = ref(false);
 
-// --- LÓGICA DE CONTROL DE VIDEO ---
+// NUEVO: Estados para las animaciones efímeras
+const showTempPause = ref(false);
+const showTempPlay = ref(false);
 
-// 1. Pausar video (Interno)
+// --- LÓGICA DE CONTROL ---
+
 const pauseVideo = () => {
     if (videoRef.value && !videoRef.value.paused) {
         videoRef.value.pause();
@@ -32,96 +33,72 @@ const pauseVideo = () => {
     }
 };
 
-// 2. Reanudar video (Expuesto al padre)
 const resumeVideo = () => {
     if (videoRef.value) {
         videoRef.value.play()
             .then(() => {
                 isPlaying.value = true;
-                pausedByInteraction.value = false; // Ya no estamos en "modo estudio"
+                pausedByInteraction.value = false;
             })
-            .catch(e => console.error("Error al reanudar:", e));
+            .catch(e => console.error(e));
     }
 };
 
-// 3. Manejar clic en palabra (Pausa Limpia)
+// 1. AL TOCAR PALABRA -> PAUSA + ICONO PAUSA EFÍMERO
 const handleWordInteraction = () => {
     pauseVideo();
-    pausedByInteraction.value = true; // Ocultamos el botón Play gigante para leer tranquilos
+    pausedByInteraction.value = true;
+    
+    // Disparar animación de PAUSA
+    showTempPause.value = true;
+    setTimeout(() => showTempPause.value = false, 600); // Dura 600ms
 };
 
-// 4. Manejar apertura de Quiz (Pausa + Emit)
 const handleOpenQuiz = () => {
     pauseVideo();
     emit('open-quiz');
 };
 
-// IMPORTANTE: Exponemos 'resume' para que Player.vue pueda usarlo
+// Expose para el padre
 defineExpose({ resume: resumeVideo });
 
-// --- LÓGICA DE SUBTÍTULOS ---
+// --- SUBTÍTULOS ---
 const currentSubtitleText = computed(() => {
     const transcriptData = props.clip.transcript || props.clip.transcript_json;
-    
     if (!transcriptData || !showSubs.value || !Array.isArray(transcriptData)) return null;
-    
     const activeLine = transcriptData.find(line => 
-        currentTime.value >= parseFloat(line.start) && 
-        currentTime.value <= parseFloat(line.end)
+        currentTime.value >= parseFloat(line.start) && currentTime.value <= parseFloat(line.end)
     );
-
     return activeLine ? activeLine.text : null;
 });
 
-// --- EVENT HANDLERS ---
-const handleTimeUpdate = () => {
-    if (videoRef.value) currentTime.value = videoRef.value.currentTime;
-};
+const handleTimeUpdate = () => { if (videoRef.value) currentTime.value = videoRef.value.currentTime; };
+const toggleMute = (e) => { e?.stopPropagation(); if (videoRef.value) { videoRef.value.muted = !videoRef.value.muted; isMuted.value = videoRef.value.muted; }};
+const toggleSubs = (e) => { e?.stopPropagation(); showSubs.value = !showSubs.value; };
 
-const toggleMute = (e) => {
-    e?.stopPropagation(); 
-    if (videoRef.value) {
-        videoRef.value.muted = !videoRef.value.muted;
-        isMuted.value = videoRef.value.muted;
-    }
-};
-
-const toggleSubs = (e) => {
-    e?.stopPropagation();
-    showSubs.value = !showSubs.value;
-};
-
+// 2. AL TOCAR PANTALLA -> PLAY/PAUSA + ICONO PLAY EFÍMERO
 const togglePlay = () => {
     if (!videoRef.value) return;
 
     if (videoRef.value.paused) {
-        resumeVideo(); // Usamos nuestra función centralizada
+        resumeVideo();
+        
+        // Disparar animación de PLAY (Solo al reanudar manualmente)
+        showTempPlay.value = true;
+        setTimeout(() => showTempPlay.value = false, 600);
     } else {
         pauseVideo();
-        // Si el usuario pausa manualmente, SÍ queremos mostrar el botón Play
-        pausedByInteraction.value = false; 
+        pausedByInteraction.value = false;
     }
 };
 
-// Autoplay
 onMounted(() => { attemptAutoplay(); });
-
-watch(() => props.clip, () => {
-    isPlaying.value = false; 
-    setTimeout(attemptAutoplay, 100); 
-});
-
+watch(() => props.clip, () => { isPlaying.value = false; setTimeout(attemptAutoplay, 100); });
 const attemptAutoplay = () => {
     if (videoRef.value) {
         const playPromise = videoRef.value.play();
         if (playPromise !== undefined) {
-            playPromise
-                .then(() => { isPlaying.value = true; })
-                .catch(() => {
-                    // Autoplay bloqueado
-                    isPlaying.value = false;
-                    videoRef.value.muted = true;
-                });
+            playPromise.then(() => { isPlaying.value = true; }).catch(() => { isPlaying.value = false; videoRef.value.muted = true; });
         }
     }
 };
@@ -134,8 +111,7 @@ const attemptAutoplay = () => {
             <div class="w-3 h-3 bg-yellow-400 rounded-full animate-pulse shadow-[0_0_10px_rgba(250,204,21,0.8)]"></div>
             <span class="text-white font-bold text-sm font-mono tracking-widest">{{ score }} PTS</span>
         </div>
-
-        <Link href="/dashboard" class="absolute top-6 right-6 z-30 p-2 bg-black/40 backdrop-blur-md rounded-full border border-white/10 text-white hover:bg-white/20 transition hover:scale-105 active:scale-95" title="Ir a mi perfil">
+        <Link href="/dashboard" class="absolute top-6 right-6 z-30 p-2 bg-black/40 backdrop-blur-md rounded-full border border-white/10 text-white hover:bg-white/20 transition hover:scale-105 active:scale-95">
             <User :size="24" stroke-width="2.5" />
         </Link>
 
@@ -149,11 +125,36 @@ const attemptAutoplay = () => {
             @click="togglePlay"
         ></video>
 
-        <div 
-            v-if="!isPlaying && !pausedByInteraction" 
-            class="absolute inset-0 flex items-center justify-center z-30 bg-black/40 backdrop-blur-[2px] cursor-pointer transition-all duration-300"
-            @click="togglePlay"
-        >
+        <div class="absolute inset-0 flex items-center justify-center z-40 pointer-events-none">
+            
+            <transition 
+                enter-active-class="transform transition ease-out duration-200"
+                enter-from-class="opacity-0 scale-50"
+                enter-to-class="opacity-100 scale-100"
+                leave-active-class="transform transition ease-in duration-300"
+                leave-from-class="opacity-100 scale-100"
+                leave-to-class="opacity-0 scale-150"
+            >
+                <div v-if="showTempPause" class="bg-black/40 text-white p-5 rounded-full backdrop-blur-md shadow-2xl">
+                    <Pause class="w-12 h-12 fill-white" stroke-width="0" />
+                </div>
+            </transition>
+
+            <transition 
+                enter-active-class="transform transition ease-out duration-200"
+                enter-from-class="opacity-0 scale-50"
+                enter-to-class="opacity-100 scale-100"
+                leave-active-class="transform transition ease-in duration-300"
+                leave-from-class="opacity-100 scale-100"
+                leave-to-class="opacity-0 scale-150"
+            >
+                <div v-if="showTempPlay" class="bg-black/40 text-white p-5 rounded-full backdrop-blur-md shadow-2xl">
+                    <Play class="w-12 h-12 fill-white ml-1" stroke-width="0" />
+                </div>
+            </transition>
+        </div>
+
+        <div v-if="!isPlaying && !pausedByInteraction" class="absolute inset-0 flex items-center justify-center z-30 bg-black/40 backdrop-blur-[2px] cursor-pointer transition-all duration-300" @click="togglePlay">
             <div class="p-6 bg-white/20 rounded-full border-4 border-white backdrop-blur-md hover:scale-110 transition shadow-2xl animate-pulse">
                 <Play :size="48" fill="white" class="text-white ml-1" />
             </div>
@@ -164,17 +165,48 @@ const attemptAutoplay = () => {
                 <SmartSubtitle 
                     :text="currentSubtitleText" 
                     @word-clicked="handleWordInteraction" 
+                    @popover-closed="resumeVideo"
                 />
             </div>
         </div>
 
         <div class="absolute bottom-28 right-4 flex flex-col items-center gap-6 z-20">
-            
-            <button @click.stop="handleOpenQuiz" class="flex flex-col items-center gap-1 text-white group cursor-pointer transition active:scale-95">
-                <div class="p-3 bg-yellow-500 rounded-full text-black hover:scale-110 transition shadow-[0_0_15px_rgba(234,179,8,0.6)] animate-pulse">
+            <button 
+                @click.stop="!clip.completed && $emit('open-quiz')" 
+                class="flex flex-col items-center gap-1 group transition"
+                :class="clip.completed ? 'cursor-default' : 'cursor-pointer active:scale-95'"
+            >
+                <div 
+                    v-if="clip.completed && clip.won" 
+                    class="p-3 bg-green-500/10 border border-green-500/50 rounded-full backdrop-blur-md text-green-400 shadow-[0_0_15px_rgba(74,222,128,0.2)] flex items-center justify-center"
+                >
+                    <CheckCircle :size="24" stroke-width="2.5" />
+                </div>
+
+                <div 
+                    v-else-if="clip.completed && !clip.won" 
+                    class="p-3 bg-red-500/10 border border-red-500/50 rounded-full backdrop-blur-md text-red-500 shadow-[0_0_15px_rgba(239,68,68,0.2)] flex items-center justify-center"
+                >
+                    <X :size="24" stroke-width="2.5" />
+                </div>
+
+                <div 
+                    v-else 
+                    class="p-3 bg-yellow-500 rounded-full text-black group-hover:scale-110 transition shadow-[0_0_15px_rgba(234,179,8,0.6)] animate-pulse flex items-center justify-center"
+                >
                     <Brain :size="26" stroke-width="2.5" />
                 </div>
-                <span class="text-xs font-bold drop-shadow-md text-yellow-400">Quiz</span>
+                
+                <span 
+                    class="text-xs font-bold drop-shadow-md"
+                    :class="{
+                        'text-green-400': clip.completed && clip.won,
+                        'text-red-400': clip.completed && !clip.won,
+                        'text-yellow-400': !clip.completed
+                    }"
+                >
+                    {{ clip.completed ? (clip.won ? 'Genial' : 'Falló') : 'Quiz' }}
+                </span>
             </button>
 
             <button class="flex flex-col items-center gap-1 text-white group active:scale-90 transition">
