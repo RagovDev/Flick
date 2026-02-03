@@ -73,7 +73,7 @@ defineProps({
                     <div class="flex flex-col items-center">
                         <span class="text-3xl font-bold text-white">+100</span>
                         <span class="text-xs text-gray-500 uppercase tracking-widest">Películas</span>
-                    </div>
+                    </div> 
                     <div class="flex flex-col items-center">
                         <span class="text-3xl font-bold text-white">A1-C2</span>
                         <span class="text-xs text-gray-500 uppercase tracking-widest">Niveles</span>

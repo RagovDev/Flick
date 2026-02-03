@@ -8,47 +8,99 @@ use App\Models\Option;
 use App\Models\UserProgress;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Inertia\Inertia;
+use Inertia\Inertia; 
 
 class ClipController extends Controller
 {
     /**
      * Muestra la vista principal (El reproductor).
      */
-    public function index()
+    public function index(Request $request)
     {
-        $clip = $this->fetchNextClip();
+        // 1. PREPARAR QUERY (Siempre con preguntas)
+        $query = Clip::with(['questions.options']);
 
-        if (!$clip) {
-            // Si ya vio todo, lo mandamos al Dashboard para que vea su trofeo
-            return redirect()->route('dashboard'); 
+        // 2. FILTRO DE CATEGORÍA
+        if ($request->has('category') && $request->category !== 'all') {
+            $query->where('category', $request->category);
         }
 
-        // CORRECCIÓN IMPORTANTE:
-        // Pasamos 'userScore' para que el HUD muestre los puntos al cargar la página.
-        return Inertia::render('Player', [ 
+        // 3. BUSCAR VIDEO NO VISTO
+        $watchedIds = UserProgress::where('user_id', Auth::id())
+            ->where('watched', true)
+            ->pluck('clip_id');
+
+        $clip = $query->whereNotIn('id', $watchedIds)
+            ->inRandomOrder()
+            ->first();
+
+        // 4. FALLBACK: Si ya vio todo, repetimos (pero cargando preguntas)
+        if (!$clip) {
+            // CORRECCIÓN IMPORTANTE: Volvemos a usar with() aquí
+            $query = Clip::with(['questions.options']); 
+            
+            if ($request->has('category') && $request->category !== 'all') {
+                $query->where('category', $request->category);
+            }
+            $clip = $query->inRandomOrder()->first();
+        }
+
+        // 5. ERROR: Si no hay videos
+        if (!$clip) {
+            return redirect()->route('dashboard')->with('error', 'No hay videos en esa categoría aún.');
+        }
+
+        // 6. INYECCIÓN DE ESTADO (SOLUCIÓN "ME DEJA CONTESTAR DE NUEVO")
+        // Le pegamos al objeto clip la información de si ya fue completado
+        $this->attachUserProgress($clip);
+
+        return Inertia::render('Player', [
             'initialClip' => $clip,
-            'userScore' => Auth::user()->score, 
+            'activeCategory' => $request->category ?? null 
         ]);
     }
 
     /**
      * API Endpoint: Devuelve el siguiente video en formato JSON.
-     */
-    public function getNext()
+     */    
+    public function getNext(Request $request) 
     {
-        $clip = $this->fetchNextClip();
+        $query = Clip::with(['questions.options']);
+
+        if ($request->has('category') && $request->category !== 'all') {
+            $query->where('category', $request->category);
+        }
+
+        $watchedIds = UserProgress::where('user_id', Auth::id())
+            ->where('watched', true)
+            ->pluck('clip_id');
+        
+        $clip = $query->whereNotIn('id', $watchedIds)
+            ->inRandomOrder()
+            ->first();
+
+        if (!$clip) {
+             $query = Clip::with(['questions.options']); 
+             
+             if ($request->has('category') && $request->category !== 'all') {
+                 $query->where('category', $request->category);
+             }
+             
+             $clip = $query->inRandomOrder()->first();
+        }
 
         if (!$clip) {
             return response()->json(['message' => 'No more clips'], 204);
         }
+
+        // INYECCIÓN DE ESTADO TAMBIÉN AQUÍ
+        $this->attachUserProgress($clip);
 
         return response()->json($clip);
     }
 
     /**
      * Valida la respuesta del usuario y suma puntos.
-     * (Renombrado a 'check' para coincidir con routes/web.php)
      */
     public function check(Request $request)
     {
@@ -59,15 +111,23 @@ class ClipController extends Controller
 
         $user = Auth::user();
         
-        // Verificar si ya respondió este video antes (para no sumar puntos dobles)
         $alreadyAnswered = UserProgress::where('user_id', $user->id)
             ->where('clip_id', $request->clip_id)
             ->exists();
 
+        // Seguridad Backend: Si ya respondió, rechazamos el intento de sumar puntos
+        if ($alreadyAnswered) {
+             return response()->json([
+                'correct' => false, // O true, da igual, no suma
+                'points_earned' => 0,
+                'total_score' => $user->score,
+                'message' => 'Ya respondiste este video.'
+             ]);
+        }
+
         $option = Option::find($request->option_id);
         $isCorrect = $option->is_correct;
 
-        // Guardar o Actualizar progreso
         UserProgress::updateOrCreate(
             ['user_id' => $user->id, 'clip_id' => $request->clip_id],
             [
@@ -77,14 +137,10 @@ class ClipController extends Controller
             ]
         );
 
-        // LÓGICA DE PUNTOS:
         $pointsEarned = 0;
         
-        // Solo sumamos si es correcta Y si es la primera vez que responde este video
-        if ($isCorrect && !$alreadyAnswered) {
-            // Buscamos cuántos puntos vale la pregunta asociada (o 10 por defecto)
+        if ($isCorrect) {
             $questionPoints = $option->question->points ?? 10; 
-            
             $user->increment('score', $questionPoints);
             $pointsEarned = $questionPoints;
         }
@@ -92,25 +148,9 @@ class ClipController extends Controller
         return response()->json([
             'correct' => $isCorrect,
             'points_earned' => $pointsEarned,
-            'total_score' => $user->fresh()->score, // Devolvemos el puntaje actualizado para que Vue lo lea
+            'total_score' => $user->fresh()->score,
             'message' => $isCorrect ? '¡Correcto!' : 'Ups, casi.'
         ]);
-    }
-
-    /**
-     * Lógica privada para buscar un video no visto.
-     */
-    private function fetchNextClip()
-    {
-        $userId = Auth::id();
-
-        return Clip::with(['questions.options']) // Cargamos preguntas y opciones
-            ->whereDoesntHave('userProgress', function ($query) use ($userId) {
-                // Filtro: Donde NO exista un registro de progreso para este usuario
-                $query->where('user_id', $userId);
-            })
-            ->inRandomOrder() 
-            ->first();
     }
 
     /**
@@ -118,15 +158,33 @@ class ClipController extends Controller
      */
     public function show($id)
     {
-        // Buscamos el video por ID con sus preguntas
         $clip = Clip::with('questions.options')->findOrFail($id);
-
-        // Reutilizamos la vista del reproductor (Flick/Index o Player)
-        // pero le pasamos una bandera 'isPracticeMode'
-        return Inertia::render('Player', [ // Ojo: Asegúrate que coincida con tu archivo Vue ('Player' o 'Flick/Index')
+        
+        // En modo práctica no necesitamos chequear progreso DB porque
+        // el frontend fuerza el modo "Repaso" con la prop isPracticeMode.
+        
+        return Inertia::render('Player', [
             'initialClip' => $clip,
             'userScore' => Auth::user()->score,
             'isPracticeMode' => true, 
         ]);
+    }
+
+    /**
+     * Helper Privado: Adjunta el estado (completado/ganado) al objeto clip
+     */
+    private function attachUserProgress($clip)
+    {
+        if (!$clip) return;
+
+        $progress = UserProgress::where('user_id', Auth::id())
+            ->where('clip_id', $clip->id)
+            ->first();
+
+        // Creamos propiedades dinámicas que Vue leerá
+        $clip->completed = $progress ? true : false;
+        
+        // Si existe progreso, miramos si acertó. Si no, false.
+        $clip->won = $progress ? (bool)$progress->answered_correctly : false;
     }
 }

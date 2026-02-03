@@ -9,12 +9,11 @@ import { ArrowLeft, CheckCircle } from 'lucide-vue-next';
 
 const props = defineProps({
     initialClip: Object,
-    isPracticeMode: { type: Boolean, default: false }
+    isPracticeMode: { type: Boolean, default: false },
+    activeCategory: { type: String, default: null } 
 });
 
 // --- ESTADO ---
-// Inicializamos el primer clip. Si ya viene resuelto del backend, idealmente debería tener una propiedad 'completed'.
-// Por ahora, asumimos que si entra al player es para jugar.
 const clips = ref([props.initialClip]); 
 const currentIndex = ref(0);
 const transitionName = ref('slide-up');
@@ -47,12 +46,11 @@ const goToNextVideo = async () => {
         setTimeout(() => isScrolling.value = false, 500);
         
         // ESTRATEGIA DE BUFFER:
-        // Si estamos viendo el penúltimo video, cargamos uno más en el fondo
         if (currentIndex.value === clips.value.length - 1) {
             fetchNextClip();
         }
     } else {
-        await fetchNextClip(); // Si llegamos al borde, forzamos carga
+        await fetchNextClip(); 
         if (currentIndex.value < clips.value.length - 1) {
              currentIndex.value++;
         }
@@ -73,15 +71,19 @@ const fetchNextClip = async () => {
     isLoadingNext.value = true;
 
     try {
-        const response = await axios.get('/flick/next');
+         const response = await axios.get('/flick/next', {
+            params: { category: props.activeCategory } 
+        });
         if (response.status === 204 || !response.data) {
              // Fin del feed
         } else {
-            // Verificamos que no esté duplicado por si acaso
+            // Verificamos que no esté duplicado
             const exists = clips.value.some(c => c.id === response.data.id);
             if (!exists) {
-                // Inicializamos la propiedad completed en false para el nuevo video
-                const newClip = { ...response.data, completed: false };
+                // *** CORRECCIÓN CRÍTICA AQUÍ ***
+                // Antes: const newClip = { ...response.data, completed: false }; <--- ERROR
+                // Ahora: Confiamos en el backend. Si es repetido, vendrá con completed: true.
+                const newClip = response.data; 
                 clips.value.push(newClip);
             }
         }
@@ -112,7 +114,7 @@ const handleTouchEnd = (e) => {
 // --- QUIZ & PUNTUACIÓN ---
 
 const openQuiz = () => {
-    // PROTECCIÓN: Si ya está completado, no abrimos el quiz (aunque el botón ya lo impide visualmente)
+    // Si ya está completado, no abrimos el quiz
     if (clips.value[currentIndex.value].completed) return;
     showQuiz.value = true;
 };
@@ -123,7 +125,7 @@ const closeQuiz = () => {
 };
 
 const handleAnswer = async (option) => {
-    // 1. MODO REPASO (Sin cambios)
+    // 1. MODO REPASO
     if (props.isPracticeMode) {
         if (option.is_correct) {
             soundCorrect.currentTime = 0; soundCorrect.play().catch(e => null);
@@ -138,7 +140,6 @@ const handleAnswer = async (option) => {
     }
 
     // 2. MODO JUEGO
-    // Verificación de seguridad: Si ya se jugó este clip, no permitir reintentos
     if (clips.value[currentIndex.value].completed) return; 
 
     try {
@@ -147,32 +148,26 @@ const handleAnswer = async (option) => {
             option_id: option.id
         });
 
-        // *** CAMBIO CLAVE: "UNA SOLA VIDA" ***
-        // Marcamos el clip como completado inmediatamente, sin importar el resultado.
-        // Esto bloquea el botón para evitar farmear puntos o reintentar.
+        // Marcamos completado visualmente de inmediato
         clips.value[currentIndex.value].completed = true; 
 
         if (response.data.correct) {
-            // --- ACIERTO (GANÓ) ---
-            clips.value[currentIndex.value].won = true; // Flag para pintar el botón de VERDE
+            // ACIERTO
+            clips.value[currentIndex.value].won = true; 
 
             soundCorrect.currentTime = 0; soundCorrect.play().catch(e => null);
             confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 }, colors: ['#FACC15', '#ffffff', '#00ff00'] });
 
-            // Actualizar puntos
             if (response.data.total_score) userScore.value = response.data.total_score;
 
-            // Avanzamos automáticamente
             setTimeout(() => { goToNextVideo(); }, 1500);
         } else {
-            // --- ERROR (PERDIÓ) ---
-            clips.value[currentIndex.value].won = false; // Flag para pintar el botón de ROJO
+            // ERROR
+            clips.value[currentIndex.value].won = false;
 
             soundWrong.currentTime = 0; soundWrong.play().catch(e => null);
             triggerShake();
 
-            // Avanzamos automáticamente al siguiente video (Feed Infinito)
-            // Cerramos el quiz y pasamos al siguiente
             setTimeout(() => { showQuiz.value = false; goToNextVideo(); }, 1000);
         }
     } catch (error) {
@@ -188,8 +183,7 @@ onMounted(() => {
     window.addEventListener('touchstart', handleTouchStart);
     window.addEventListener('touchend', handleTouchEnd);
     
-    // PRE-CARGA INTELIGENTE:
-    // Cargamos el siguiente video inmediatamente para que el usuario no espere al deslizar
+    // PRE-CARGA
     fetchNextClip();
 });
 
@@ -263,7 +257,7 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
-/* (MISMOS ESTILOS DE ANTES, NO HACE FALTA CAMBIARLOS) */
+/* (MISMOS ESTILOS DE ANTES) */
 .shake-animation { animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both; }
 @keyframes shake {
   10%, 90% { transform: translate3d(-1px, 0, 0); }
