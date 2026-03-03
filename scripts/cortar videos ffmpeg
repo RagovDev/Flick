@@ -1,0 +1,2 @@
+
+ffmpeg -i video.mp4 -c copy -map 0 -segment_time 30 -f segment partes_%03d.mp4

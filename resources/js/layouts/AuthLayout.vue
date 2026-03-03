@@ -1,6 +1,6 @@
 <script setup>
 import { Link, router } from '@inertiajs/vue3';
-import { User, LogOut } from 'lucide-vue-next';
+import { LogOut, User } from 'lucide-vue-next';
 import { route } from 'ziggy-js';
 
 const logout = () => {
@@ -11,57 +11,90 @@ const logout = () => {
 
 <template>
     <div class="min-h-screen bg-gray-900">
-        <nav class="bg-gray-800 border-b border-gray-700">
-            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div class="flex justify-between h-16">
-                    
+        <nav class="border-b border-gray-700 bg-gray-800">
+            <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+                <div class="flex h-16 justify-between">
                     <div class="flex">
-                        <div class="shrink-0 flex items-center">
+                        <div class="flex shrink-0 items-center">
                             <Link :href="route('dashboard')">
-                                <div class="w-8 h-8 bg-yellow-400 rounded-lg flex items-center justify-center font-bold text-black">
+                                <div
+                                    class="flex h-8 w-8 items-center justify-center rounded-lg bg-yellow-400 font-bold text-black"
+                                >
                                     F
                                 </div>
                             </Link>
                         </div>
 
-                        <div class="hidden space-x-8 sm:-my-px sm:ml-10 sm:flex">
-                            <Link 
-                                :href="route('dashboard')" 
-                                class="inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium leading-5 transition duration-150 ease-in-out focus:outline-none"
-                                :class="$page.url === '/dashboard' ? 'border-yellow-400 text-white' : 'border-transparent text-gray-300 hover:text-white hover:border-gray-300'"
+                        <div
+                            class="hidden space-x-8 sm:-my-px sm:ml-10 sm:flex"
+                        >
+                            <Link
+                                :href="route('dashboard')"
+                                class="inline-flex items-center border-b-2 px-1 pt-1 text-sm leading-5 font-medium transition duration-150 ease-in-out focus:outline-none"
+                                :class="
+                                    $page.url === '/dashboard'
+                                        ? 'border-yellow-400 text-white'
+                                        : 'border-transparent text-gray-300 hover:border-gray-300 hover:text-white'
+                                "
                             >
                                 Dashboard
                             </Link>
-                            
-                            <Link 
-                                :href="route('flick.index')" 
-                                class="inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium leading-5 transition duration-150 ease-in-out focus:outline-none"
-                                :class="$page.url === '/flick' ? 'border-yellow-400 text-white' : 'border-transparent text-gray-300 hover:text-white hover:border-gray-300'"
+
+                            <Link
+                                :href="route('flick.index')"
+                                class="inline-flex items-center border-b-2 px-1 pt-1 text-sm leading-5 font-medium transition duration-150 ease-in-out focus:outline-none"
+                                :class="
+                                    $page.url === '/flick'
+                                        ? 'border-yellow-400 text-white'
+                                        : 'border-transparent text-gray-300 hover:border-gray-300 hover:text-white'
+                                "
                             >
                                 Reproductor
                             </Link>
 
-                            <Link 
-                                :href="route('vocabulary.index')" 
-                                class="inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium leading-5 transition duration-150 ease-in-out focus:outline-none"
-                                :class="$page.url === '/flick' ? 'border-yellow-400 text-white' : 'border-transparent text-gray-300 hover:text-white hover:border-gray-300'"
+                            <Link
+                                :href="route('vocabulary.index')"
+                                class="inline-flex items-center border-b-2 px-1 pt-1 text-sm leading-5 font-medium transition duration-150 ease-in-out focus:outline-none"
+                                :class="
+                                    $page.url === '/vocabulary'
+                                        ? 'border-yellow-400 text-white'
+                                        : 'border-transparent text-gray-300 hover:border-gray-300 hover:text-white'
+                                "
                             >
                                 Mi Vocabulario
+                            </Link>
+
+                            <Link
+                                :href="route('admin.create')"
+                                class="inline-flex items-center border-b-2 px-1 pt-1 text-sm leading-5 font-medium transition duration-150 ease-in-out focus:outline-none"
+                                :class="
+                                    $page.url === '/admin/upload'
+                                        ? 'border-yellow-400 text-white'
+                                        : 'border-transparent text-gray-300 hover:border-gray-300 hover:text-white'
+                                "
+                            >
+                                Upload
                             </Link>
                         </div>
                     </div>
 
-                    <div class="hidden sm:flex sm:items-center sm:ml-6">
-                        <div class="ml-3 relative flex items-center gap-4">
-                            <span class="text-gray-400 text-sm mr-2">
+                    <div class="hidden sm:ml-6 sm:flex sm:items-center">
+                        <div class="relative ml-3 flex items-center gap-4">
+                            <span class="mr-2 text-sm text-gray-400">
                                 {{ $page.props.auth?.user?.name || 'Usuario' }}
                             </span>
-                            
-                            <button @click="logout" class="text-gray-400 hover:text-white transition" title="Cerrar Sesión">
+
+                            <button
+                                @click="logout"
+                                class="text-gray-400 transition hover:text-white"
+                                title="Cerrar Sesión"
+                            >
                                 <LogOut :size="20" />
                             </button>
-                            
-                            <div class="bg-gray-700 p-2 rounded-full text-gray-200">
+
+                            <div
+                                class="rounded-full bg-gray-700 p-2 text-gray-200"
+                            >
                                 <User :size="20" />
                             </div>
                         </div>
@@ -71,7 +104,7 @@ const logout = () => {
         </nav>
 
         <header class="bg-gray-800 shadow" v-if="$slots.header">
-            <div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+            <div class="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
                 <slot name="header" />
             </div>
         </header>
