@@ -34,19 +34,18 @@ class AdminClipController extends Controller
             'video_file' => 'required|file|mimetypes:video/mp4,video/quicktime|max:50000',
         ]);
 
-        // 2. Subir el video al almacenamiento
+        // 2. Subir el video
         $path = $request->file('video_file')->store('videos', 'public');
         $fullVideoPath = storage_path('app/public/' . $path);
         $scriptPath = base_path('scripts/generate_subs.py');
 
         // 3. Ejecutar Python (Whisper)
         $process = new Process(['python', $scriptPath, $fullVideoPath]);
-        $process->setTimeout(300); // 5 minutos límite
+        $process->setTimeout(300); 
         $process->run();
 
-        // Trampa: Si el comando de Python falla a nivel de sistema
         if (!$process->isSuccessful()) {
-            Storage::disk('public')->delete($path); // Limpiamos la basura
+            Storage::disk('public')->delete($path);
             dd('🚨 ERROR FATAL AL EJECUTAR PYTHON:', $process->getErrorOutput());
         }
 
@@ -54,34 +53,41 @@ class AdminClipController extends Controller
         $pythonOutput = $process->getOutput();
         $transcriptArray = json_decode($pythonOutput, true);
 
-        // Trampa: Si el script de Python devolvió un mensaje de error manual
-        if (isset($transcriptArray['error'])) {
+        if (!is_array($transcriptArray) || isset($transcriptArray['error'])) {
             Storage::disk('public')->delete($path);
-            dd('🚨 ERROR DE WHISPER (PYTHON):', $transcriptArray['error']);
+            dd('🚨 ERROR DE WHISPER/DECODIFICACIÓN:', $transcriptArray['error'] ?? 'JSON Inválido');
         }
 
-        // Trampa: Si el JSON no se pudo decodificar por algún motivo
-        if (!is_array($transcriptArray)) {
-            Storage::disk('public')->delete($path);
-            dd('🚨 ERROR DE DECODIFICACIÓN:', 'El output de Python no es un JSON válido.', $pythonOutput);
-        }
+        // --- SOLUCIÓN PUNTO 3: NORMALIZACIÓN DE TIEMPOS ---
+        // Detectamos el tiempo de inicio del primer subtítulo (el offset)
+        $offset = count($transcriptArray) > 0 ? (float)$transcriptArray[0]['start'] : 0;
 
-        // 5. Unir los subtítulos para pasárselos a la IA
+        // Si el offset es significativo (mayor a 2 segundos), normalizamos todo a 0
+        if ($offset > 2) {
+            $transcriptArray = array_map(function($segment) use ($offset) {
+                return [
+                    'start' => max(0, (float)$segment['start'] - $offset),
+                    'end'   => max(0, (float)$segment['end'] - $offset),
+                    'text'  => $segment['text']
+                ];
+            }, $transcriptArray);
+        }
+        // --------------------------------------------------
+
+        // 5. Unir los subtítulos para la IA
         $fullText = collect($transcriptArray)->pluck('text')->join(' ');
 
-        // Trampa: Si Whisper no encontró diálogo en el video
         if (empty(trim($fullText))) {
             Storage::disk('public')->delete($path);
-            dd('🚨 ERROR: Python no extrajo ningún texto del video. ¿El video tiene audio legible?');
+            dd('🚨 ERROR: No se encontró audio legible.');
         }
 
-        // 6. Hablar con Gemini API
+        // 6. Generar Quiz con Gemini
         $quizData = $this->generateQuizWithAI($fullText);
 
-        // Trampa: Si Gemini falló y devolvió null (el error específico se mostrará dentro de la función)
         if (!$quizData) {
             Storage::disk('public')->delete($path);
-            dd('🚨 ERROR FINAL: La IA falló y devolvió null.');
+            dd('🚨 ERROR FINAL: La IA falló.');
         }
 
         // 7. GUARDAR EN BASE DE DATOS
@@ -89,7 +95,7 @@ class AdminClipController extends Controller
             'title' => $request->title,
             'category' => $request->category,
             'video_url' => '/storage/' . $path,
-            'transcript_json' => $transcriptArray, // Subtítulos de Whisper
+            'transcript_json' => $transcriptArray, // Ya viene normalizado aquí
             'difficulty' => 'A1',
         ]);
 
@@ -103,41 +109,28 @@ class AdminClipController extends Controller
         Option::create(['question_id' => $question->id, 'text' => $quizData['wrong_option_1'], 'is_correct' => false]);
         Option::create(['question_id' => $question->id, 'text' => $quizData['wrong_option_2'], 'is_correct' => false]);
 
-        // ¡Éxito! Volvemos al dashboard
-        return redirect()->route('dashboard')->with('success', '¡Video procesado por IA y publicado con éxito!');
+        return redirect()->route('admin.dashboard')->with('success', '¡Clip normalizado y publicado!');
     }
 
-    /**
-     * Función privada que habla con la API de Gemini
-     */
     private function generateQuizWithAI($text)
     {
         $apiKey = env('GEMINI_API_KEY');
 
-        // Trampa: Verificar si la API Key existe
         if (empty($apiKey)) {
-            dd('🚨 ERROR FATAL: No encontré la variable GEMINI_API_KEY en tu archivo .env. ¡Agrégala!');
+            dd('🚨 ERROR: GEMINI_API_KEY no configurada.');
         }
 
-        // El "Prompt" maestro mejorado y estricto
-        $prompt = "Lee este diálogo corto extraído de un video: '{$text}'. 
-        Crea una pregunta de opción múltiple para evaluar la comprensión de la escena o el vocabulario en inglés.
-        
-        REGLAS ESTRICTAS:
-        1. La pregunta ('question') DEBE ser directa y al grano.
-        2. NO uses introducciones, NO saludes, NO des explicaciones.
-        3. Longitud máxima de la pregunta: 15 palabras. (Ejemplo: '¿Qué significa la frase X?', '¿Por qué el personaje hace Y?').
-        4. Las opciones de respuesta deben ser muy cortas (1 a 5 palabras).
-        5. DEBES responder ÚNICAMENTE con un objeto JSON válido con la siguiente estructura exacta, sin texto adicional ni formato markdown:
+        $prompt = "Read this dialogue: '{$text}'. 
+        Create a short multiple-choice question (max 15 words) about the vocabulary or situation.
+        Respond ONLY with valid JSON:
         {
-            \"question\": \"Tu pregunta directa aquí\",
-            \"correct_option\": \"Respuesta correcta\",
-            \"wrong_option_1\": \"Falsa 1\",
-            \"wrong_option_2\": \"Falsa 2\"
+            \"question\": \"...\",
+            \"correct_option\": \"...\",
+            \"wrong_option_1\": \"...\",
+            \"wrong_option_2\": \"...\"
         }";
 
         try {
-            // Petición HTTP a Google (withoutVerifying para evitar problemas de certificados locales)
             $response = Http::withoutVerifying()->withHeaders([
                 'Content-Type' => 'application/json',
             ])->post("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={$apiKey}", [
@@ -148,25 +141,11 @@ class AdminClipController extends Controller
 
             if ($response->successful()) {
                 $aiText = $response->json('candidates.0.content.parts.0.text');
-
-                // Limpiar posibles etiquetas markdown de la IA
                 $aiText = preg_replace('/```json|```/', '', $aiText);
-
-                $decodedData = json_decode(trim($aiText), true);
-
-                // Trampa: Si la IA no devolvió el JSON correcto
-                if (!$decodedData || !isset($decodedData['question'])) {
-                    dd('🚨 ERROR DE FORMATO IA: La IA no devolvió un JSON válido.', 'Texto Original:', $aiText);
-                }
-
-                return $decodedData;
-            } else {
-                // Trampa: Si Google rechazó la petición
-                dd('🚨 ERROR DE API GOOGLE:', $response->status(), $response->body());
+                return json_decode(trim($aiText), true);
             }
         } catch (\Exception $e) {
-            // Trampa: Error de conexión del servidor
-            dd('🚨 ERROR DE CONEXIÓN (LARAVEL HTTP):', $e->getMessage());
+            return null;
         }
 
         return null;

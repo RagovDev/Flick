@@ -11,7 +11,7 @@ const form = useForm({
 });
 
 const submit = () => {
-    form.post(route('admin.store'), {
+    form.post(route('admin.clips.store'), {
         preserveScroll: true,
         onSuccess: () => form.reset(),
     });
@@ -28,9 +28,6 @@ const submit = () => {
                     <UploadCloud class="text-yellow-400" />
                     Subir Nuevo Video
                 </h2>
-                <Link :href="route('dashboard')" class="text-gray-400 hover:text-white transition">
-                    Volver al Panel
-                </Link>
             </div>
         </template>
 

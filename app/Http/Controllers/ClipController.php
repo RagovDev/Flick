@@ -8,7 +8,9 @@ use App\Models\Option;
 use App\Models\UserProgress;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Inertia\Inertia; 
+use Inertia\Inertia;
+use App\Models\Like;
+use Illuminate\Support\Facades\Log;
 
 class ClipController extends Controller
 {
@@ -37,8 +39,8 @@ class ClipController extends Controller
         // 4. FALLBACK: Si ya vio todo, repetimos (pero cargando preguntas)
         if (!$clip) {
             // CORRECCIÓN IMPORTANTE: Volvemos a usar with() aquí
-            $query = Clip::with(['questions.options']); 
-            
+            $query = Clip::with(['questions.options']);
+
             if ($request->has('category') && $request->category !== 'all') {
                 $query->where('category', $request->category);
             }
@@ -56,16 +58,24 @@ class ClipController extends Controller
 
         return Inertia::render('Player', [
             'initialClip' => $clip,
-            'activeCategory' => $request->category ?? null 
+            'activeCategory' => $request->category ?? null
         ]);
     }
 
     /**
      * API Endpoint: Devuelve el siguiente video en formato JSON.
-     */    
-    public function getNext(Request $request) 
+     */
+    public function getNext(Request $request)
     {
-        $query = Clip::with(['questions.options']);
+        // Función anónima para no repetir la lógica de carga de relaciones y likes
+        $getBaseQuery = function () use ($request) {
+            return Clip::with(['questions.options'])
+                ->withExists(['likes' => function ($query) {
+                    $query->where('user_id', Auth::id());
+                }]);
+        };
+
+        $query = $getBaseQuery();
 
         if ($request->has('category') && $request->category !== 'all') {
             $query->where('category', $request->category);
@@ -74,27 +84,31 @@ class ClipController extends Controller
         $watchedIds = UserProgress::where('user_id', Auth::id())
             ->where('watched', true)
             ->pluck('clip_id');
-        
+
+        // Intentar buscar clips no vistos
         $clip = $query->whereNotIn('id', $watchedIds)
             ->inRandomOrder()
             ->first();
 
+        // Si no hay clips nuevos, buscar cualquiera de la categoría (Respaldo)
         if (!$clip) {
-             $query = Clip::with(['questions.options']); 
-             
-             if ($request->has('category') && $request->category !== 'all') {
-                 $query->where('category', $request->category);
-             }
-             
-             $clip = $query->inRandomOrder()->first();
+            $query = $getBaseQuery();
+
+            if ($request->has('category') && $request->category !== 'all') {
+                $query->where('category', $request->category);
+            }
+
+            $clip = $query->inRandomOrder()->first();
         }
 
         if (!$clip) {
             return response()->json(['message' => 'No more clips'], 204);
         }
 
-        // INYECCIÓN DE ESTADO TAMBIÉN AQUÍ
         $this->attachUserProgress($clip);
+
+        // IMPORTANTE: Mapeamos el resultado de withExists a is_liked para el Frontend
+        $clip->is_liked = $clip->likes_exists;
 
         return response()->json($clip);
     }
@@ -110,19 +124,19 @@ class ClipController extends Controller
         ]);
 
         $user = Auth::user();
-        
+
         $alreadyAnswered = UserProgress::where('user_id', $user->id)
             ->where('clip_id', $request->clip_id)
             ->exists();
 
         // Seguridad Backend: Si ya respondió, rechazamos el intento de sumar puntos
         if ($alreadyAnswered) {
-             return response()->json([
+            return response()->json([
                 'correct' => false, // O true, da igual, no suma
                 'points_earned' => 0,
                 'total_score' => $user->score,
                 'message' => 'Ya respondiste este video.'
-             ]);
+            ]);
         }
 
         $option = Option::find($request->option_id);
@@ -138,9 +152,9 @@ class ClipController extends Controller
         );
 
         $pointsEarned = 0;
-        
+
         if ($isCorrect) {
-            $questionPoints = $option->question->points ?? 10; 
+            $questionPoints = $option->question->points ?? 10;
             $user->increment('score', $questionPoints);
             $pointsEarned = $questionPoints;
         }
@@ -159,14 +173,14 @@ class ClipController extends Controller
     public function show($id)
     {
         $clip = Clip::with('questions.options')->findOrFail($id);
-        
+
         // En modo práctica no necesitamos chequear progreso DB porque
         // el frontend fuerza el modo "Repaso" con la prop isPracticeMode.
-        
+
         return Inertia::render('Player', [
             'initialClip' => $clip,
             'userScore' => Auth::user()->score,
-            'isPracticeMode' => true, 
+            'isPracticeMode' => true,
         ]);
     }
 
@@ -183,8 +197,39 @@ class ClipController extends Controller
 
         // Creamos propiedades dinámicas que Vue leerá
         $clip->completed = $progress ? true : false;
-        
+
         // Si existe progreso, miramos si acertó. Si no, false.
         $clip->won = $progress ? (bool)$progress->answered_correctly : false;
+    }
+
+    /**
+     * Funcion para que el usuario pueda dar like a un video
+     */
+    public function toggleLike($clipId)
+    {
+        try {
+            $userId = auth()->id();
+
+            // 1. Buscamos si ya existe
+            $like = Like::where('user_id', $userId)
+                ->where('clip_id', $clipId)
+                ->first();
+
+            if ($like) {
+                $like->delete();
+                return response()->json(['status' => 'unliked']);
+            }
+
+            // 2. Si no existe, lo creamos
+            Like::create([
+                'user_id' => $userId,
+                'clip_id' => $clipId
+            ]);
+
+            return response()->json(['status' => 'liked']);
+        } catch (\Exception $e) {
+            Log::error("Error en Like: " . $e->getMessage());
+            return response()->json(['error' => 'No se pudo guardar'], 500);
+        }
     }
 }

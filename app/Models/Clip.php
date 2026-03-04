@@ -10,7 +10,7 @@ class Clip extends Model
     protected $fillable = ['title', 'video_url', 'difficulty', 'category', 'transcript_json'];
 
     // En tu modelo Clip.php
-    protected $appends = ['thumbnail_url'];
+    protected $appends = ['thumbnail_url', 'is_liked'];
 
     // Importante: castear el JSON a array automáticamente
     protected $casts = [
@@ -22,7 +22,7 @@ class Clip extends Model
         // OPCIÓN PRO: Usar una imagen de "Cine/Estudio" de alta calidad como defecto
         // Esto se ve mucho mejor que un cuadro gris.
         return "https://images.unsplash.com/photo-1485846234645-a62644f84728?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=80";
-        
+
         // NOTA: Si en el futuro subes imágenes manuales a /storage/thumbnails/, 
         // podrías cambiar esto por:
         // return "/storage/thumbnails/{$this->id}.jpg";
@@ -32,9 +32,19 @@ class Clip extends Model
     {
         return $this->hasMany(Question::class);
     }
-    
+
     public function userProgress()
     {
         return $this->hasMany(UserProgress::class);
     }
+
+    public function getIsLikedAttribute()
+    {
+        return $this->likes_exists ?? false;
+    }
+
+    public function likes()
+{
+    return $this->hasMany(Like::class);
+}
 }

@@ -7,11 +7,12 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Fortify\TwoFactorAuthenticatable;
+use Spatie\Permission\Traits\HasRoles;
 
 class User extends Authenticatable
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasFactory, Notifiable, TwoFactorAuthenticatable;
+    use HasFactory, Notifiable, TwoFactorAuthenticatable, HasRoles;
 
     /**
      * The attributes that are mass assignable.
@@ -56,5 +57,14 @@ class User extends Authenticatable
         return $this->belongsToMany(Word::class, 'word_user')
             ->withPivot(['mastery_level', 'next_review_at', 'review_count'])
             ->withTimestamps();
+    }
+
+    // Esto engaña a Vue haciéndole creer que "is_admin" es una columna real,
+    // pero en el fondo le estamos preguntando a Spatie si tienes el rol.
+    protected $appends = ['is_admin'];
+
+    public function getIsAdminAttribute()
+    {
+        return $this->hasRole('admin');
     }
 }

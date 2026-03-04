@@ -1,6 +1,6 @@
 <script setup>
 import { Head, Link } from '@inertiajs/vue3';
-import { PlayCircle, Award, Zap, ChevronRight } from 'lucide-vue-next';
+import { PlayCircle, Award, Zap, ChevronRight, LogIn } from 'lucide-vue-next';
 
 defineProps({
     canLogin: Boolean,
@@ -22,23 +22,23 @@ defineProps({
                     <span class="font-bold text-xl tracking-tight ml-1">Flick</span>
                 </div>
 
-                <div v-if="canLogin" class="flex items-center gap-4">
+                <div v-if="canLogin" class="flex items-center gap-3 sm:gap-4">
                     <Link v-if="$page.props.auth.user" :href="route('dashboard')" class="text-sm font-bold text-gray-300 hover:text-white transition">
                         Ir al Dashboard
                     </Link>
                     <template v-else>
-                        <Link :href="route('login')" class="text-sm font-bold text-gray-300 hover:text-white transition hidden sm:block">
-                            Iniciar Sesión
+                        <Link :href="route('login')" class="text-sm font-bold text-gray-300 hover:text-white transition flex items-center gap-1">
+                            Ingresar
                         </Link>
-                        <Link v-if="canRegister" :href="route('register')" class="bg-white/10 hover:bg-white/20 text-white border border-white/20 px-5 py-2 rounded-full text-sm font-bold backdrop-blur-md transition hover:scale-105">
-                            Registrarse
+                        <Link v-if="canRegister" :href="route('register')" class="bg-white/10 hover:bg-white/20 text-white border border-white/20 px-4 sm:px-5 py-2 rounded-full text-xs sm:text-sm font-bold backdrop-blur-md transition hover:scale-105">
+                            Crear Cuenta
                         </Link>
                     </template>
                 </div>
             </div>
         </nav>
 
-        <div class="relative min-h-screen flex items-center justify-center">
+        <div class="relative min-h-screen flex items-center justify-center pt-20 pb-12">
             
             <div class="absolute top-1/4 left-1/4 w-96 h-96 bg-yellow-500/20 blur-[150px] rounded-full pointer-events-none"></div>
             <div class="absolute bottom-1/4 right-1/4 w-96 h-96 bg-purple-500/10 blur-[150px] rounded-full pointer-events-none"></div>
@@ -46,7 +46,7 @@ defineProps({
             <div class="relative z-10 max-w-7xl mx-auto px-6 text-center">
                 <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-yellow-400/10 border border-yellow-400/20 text-yellow-400 text-xs font-bold uppercase tracking-wider mb-6 animate-fade-in-up">
                     <span class="w-2 h-2 rounded-full bg-yellow-400 animate-pulse"></span>
-                    Nuevo Método 2026
+                    Método con IA 2026
                 </div>
 
                 <h1 class="text-5xl md:text-7xl font-black tracking-tight mb-8 leading-tight">
@@ -55,18 +55,21 @@ defineProps({
                 </h1>
 
                 <p class="text-lg md:text-xl text-gray-400 max-w-2xl mx-auto mb-10 leading-relaxed">
-                    Olvídate de los libros aburridos. Mejora tu vocabulario y comprensión auditiva con clips de tus películas favoritas y quizzes interactivos.
+                    Olvídate de los libros aburridos. Mejora tu vocabulario y comprensión auditiva con clips de tus películas favoritas y quizzes generados por IA.
                 </p>
 
                 <div class="flex flex-col sm:flex-row gap-4 justify-center items-center">
-                    <Link :href="route('register')" class="group relative px-8 py-4 bg-yellow-400 hover:bg-yellow-300 text-black font-black text-lg rounded-full shadow-[0_0_30px_rgba(250,204,21,0.3)] transition transform hover:scale-105 hover:-translate-y-1 flex items-center gap-2">
+                    
+                    <Link :href="route('register')" class="w-full sm:w-auto px-8 py-4 bg-yellow-400 hover:bg-yellow-300 text-black font-black text-lg rounded-full shadow-[0_0_30px_rgba(250,204,21,0.3)] transition transform hover:scale-105 hover:-translate-y-1 flex items-center justify-center gap-2">
                         EMPEZAR GRATIS
                         <ChevronRight class="w-5 h-5 group-hover:translate-x-1 transition-transform" stroke-width="3" />
                     </Link>
-                    <a href="#como-funciona" class="px-8 py-4 bg-gray-800 hover:bg-gray-700 text-white font-bold text-lg rounded-full border border-gray-700 transition flex items-center gap-2">
-                        <PlayCircle class="w-5 h-5" />
-                        Ver Demo
-                    </a>
+                    
+                    <Link :href="route('login')" class="w-full sm:w-auto px-8 py-4 bg-gray-800 hover:bg-gray-700 text-white font-bold text-lg rounded-full border border-gray-700 transition transform hover:scale-105 hover:-translate-y-1 flex items-center justify-center gap-2 group">
+                        <LogIn class="w-5 h-5 text-gray-400 group-hover:text-white transition" />
+                        Ya tengo cuenta
+                    </Link>
+
                 </div>
 
                 <div class="mt-16 grid grid-cols-2 md:grid-cols-3 gap-8 max-w-3xl mx-auto opacity-70">
@@ -113,9 +116,9 @@ defineProps({
                         <div class="w-12 h-12 bg-yellow-500/10 rounded-2xl flex items-center justify-center text-yellow-400 mb-6 group-hover:scale-110 transition">
                             <Zap size="28" />
                         </div>
-                        <h3 class="text-xl font-bold text-white mb-2">Feedback Instantáneo</h3>
+                        <h3 class="text-xl font-bold text-white mb-2">Quizzes con IA</h3>
                         <p class="text-gray-400 text-sm leading-relaxed">
-                            Responde quizzes en tiempo real y recibe correcciones inmediatas. Entrena tu oído sin frustraciones.
+                            Responde quizzes en tiempo real generados por Inteligencia Artificial y recibe correcciones inmediatas.
                         </p>
                     </div>
                 </div>

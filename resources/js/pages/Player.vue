@@ -5,7 +5,7 @@ import VideoPlayer from '@/components/VideoPlayer.vue';
 import QuizOverlay from '@/components/QuizOverlay.vue';
 import axios from 'axios';
 import confetti from 'canvas-confetti';
-import { ArrowLeft, CheckCircle } from 'lucide-vue-next';
+import { ArrowLeft, CheckCircle, RotateCcw } from 'lucide-vue-next';
 
 const props = defineProps({
     initialClip: Object,
@@ -207,6 +207,14 @@ onBeforeUnmount(() => {
         <div v-if="isPracticeMode" class="absolute top-4 right-4 z-50 bg-blue-500/90 px-3 py-1 rounded-full text-xs font-black tracking-wider text-white shadow-lg border border-blue-400/50 animate-pulse">
             MODO REPASO
         </div>
+
+        <transition enter-active-class="transition ease-out duration-300" enter-from-class="opacity-0 scale-90" enter-to-class="opacity-100 scale-100">
+            <div v-if="!isPracticeMode && clips.length > 0 && clips[currentIndex]?.completed" 
+                 class="absolute top-4 right-4 z-50 flex items-center gap-1.5 bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-full text-xs font-bold text-gray-300 border border-gray-500/50 shadow-lg">
+                <RotateCcw class="w-3.5 h-3.5" />
+                <span>REPASO</span>
+            </div>
+        </transition>
 
         <div class="w-full max-w-md h-full bg-black relative shadow-2xl overflow-hidden" :class="{ 'shake-animation': isShaking }">
             

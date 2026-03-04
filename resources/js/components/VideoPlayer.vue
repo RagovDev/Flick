@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue';
 import { Link } from '@inertiajs/vue3'; 
-// Agregamos 'Pause' a los iconos importados
+import axios from 'axios'; // Importación corregida
 import { Volume2, VolumeX, Heart, Type, Play, Pause, Brain, User, CheckCircle, X } from 'lucide-vue-next';
 import SmartSubtitle from '@/components/SmartSubtitle.vue';
 
@@ -12,15 +12,16 @@ const props = defineProps({
 
 const emit = defineEmits(['open-quiz']);
 
-// Refs y Estado
+// --- ESTADO ---
 const videoRef = ref(null);
 const currentTime = ref(0);
-const isMuted = ref(true); 
+const isMuted = ref(false); // Sonido activo por defecto
 const showSubs = ref(true);
 const isPlaying = ref(false);
 const pausedByInteraction = ref(false);
+const isLiked = ref(props.clip.is_liked || false); // Estado inicial del corazón
 
-// NUEVO: Estados para las animaciones efímeras
+// Estados para animaciones
 const showTempPause = ref(false);
 const showTempPlay = ref(false);
 
@@ -40,18 +41,21 @@ const resumeVideo = () => {
                 isPlaying.value = true;
                 pausedByInteraction.value = false;
             })
-            .catch(e => console.error(e));
+            .catch(e => {
+                if (e.name === 'NotAllowedError') {
+                    videoRef.value.muted = true;
+                    isMuted.value = true;
+                    videoRef.value.play();
+                }
+            });
     }
 };
 
-// 1. AL TOCAR PALABRA -> PAUSA + ICONO PAUSA EFÍMERO
 const handleWordInteraction = () => {
     pauseVideo();
     pausedByInteraction.value = true;
-    
-    // Disparar animación de PAUSA
     showTempPause.value = true;
-    setTimeout(() => showTempPause.value = false, 600); // Dura 600ms
+    setTimeout(() => showTempPause.value = false, 600); 
 };
 
 const handleOpenQuiz = () => {
@@ -59,31 +63,49 @@ const handleOpenQuiz = () => {
     emit('open-quiz');
 };
 
-// Expose para el padre
 defineExpose({ resume: resumeVideo });
 
-// --- SUBTÍTULOS ---
+// --- SUBTÍTULOS (Lógica Limpia - El Controller ya normalizó los tiempos) ---
 const currentSubtitleText = computed(() => {
-    const transcriptData = props.clip.transcript || props.clip.transcript_json;
-    if (!transcriptData || !showSubs.value || !Array.isArray(transcriptData)) return null;
-    const activeLine = transcriptData.find(line => 
-        currentTime.value >= parseFloat(line.start) && currentTime.value <= parseFloat(line.end)
-    );
+    const rawData = props.clip.transcript_json || props.clip.transcript;
+    if (!rawData || !showSubs.value) return null;
+
+    const segments = Array.isArray(rawData) ? rawData : (rawData.segments || []);
+    const now = currentTime.value;
+
+    const activeLine = segments.find(line => {
+        const start = parseFloat(line.start);
+        const end = parseFloat(line.end);
+        // Margen de 0.2s para suavidad
+        return now >= start && now <= (end + 0.2);
+    });
+
     return activeLine ? activeLine.text : null;
 });
 
-const handleTimeUpdate = () => { if (videoRef.value) currentTime.value = videoRef.value.currentTime; };
-const toggleMute = (e) => { e?.stopPropagation(); if (videoRef.value) { videoRef.value.muted = !videoRef.value.muted; isMuted.value = videoRef.value.muted; }};
-const toggleSubs = (e) => { e?.stopPropagation(); showSubs.value = !showSubs.value; };
+const handleTimeUpdate = (event) => { 
+    if (event && event.target) {
+        currentTime.value = event.target.currentTime; 
+    }
+};
 
-// 2. AL TOCAR PANTALLA -> PLAY/PAUSA + ICONO PLAY EFÍMERO
+const toggleMute = (e) => { 
+    e?.stopPropagation(); 
+    if (videoRef.value) { 
+        videoRef.value.muted = !videoRef.value.muted; 
+        isMuted.value = videoRef.value.muted; 
+    }
+};
+
+const toggleSubs = (e) => { 
+    e?.stopPropagation(); 
+    showSubs.value = !showSubs.value; 
+};
+
 const togglePlay = () => {
     if (!videoRef.value) return;
-
     if (videoRef.value.paused) {
         resumeVideo();
-        
-        // Disparar animación de PLAY (Solo al reanudar manualmente)
         showTempPlay.value = true;
         setTimeout(() => showTempPlay.value = false, 600);
     } else {
@@ -92,13 +114,42 @@ const togglePlay = () => {
     }
 };
 
+const toggleLike = async (e) => {
+    e?.stopPropagation();
+    try {
+        const response = await axios.post(route('flick.like', props.clip.id));
+        isLiked.value = response.data.status === 'liked';
+    } catch (error) {
+        console.error("Error al dar like:", error);
+    }
+};
+
+// --- CICLO DE VIDA ---
 onMounted(() => { attemptAutoplay(); });
-watch(() => props.clip, () => { isPlaying.value = false; setTimeout(attemptAutoplay, 100); });
+
+watch(() => props.clip, (newClip) => { 
+    isPlaying.value = false; 
+    currentTime.value = 0; 
+    isLiked.value = newClip.is_liked || false; // Resetear corazón al cambiar clip
+    if (videoRef.value) {
+        videoRef.value.currentTime = 0;
+    }
+    setTimeout(attemptAutoplay, 100); 
+});
+
 const attemptAutoplay = () => {
     if (videoRef.value) {
+        videoRef.value.muted = isMuted.value;
         const playPromise = videoRef.value.play();
         if (playPromise !== undefined) {
-            playPromise.then(() => { isPlaying.value = true; }).catch(() => { isPlaying.value = false; videoRef.value.muted = true; });
+            playPromise.then(() => { 
+                isPlaying.value = true; 
+            }).catch(() => { 
+                isPlaying.value = false; 
+                videoRef.value.muted = true; 
+                isMuted.value = true;
+                videoRef.value.play(); 
+            });
         }
     }
 };
@@ -120,41 +171,25 @@ const attemptAutoplay = () => {
             :key="clip.video_url"
             class="w-full h-full object-cover cursor-pointer" 
             :src="clip.video_url"
-            loop muted autoplay playsinline
+            loop :muted="isMuted" autoplay playsinline
             @timeupdate="handleTimeUpdate"
             @click="togglePlay"
         ></video>
 
         <div class="absolute inset-0 flex items-center justify-center z-40 pointer-events-none">
-            
-            <transition 
-                enter-active-class="transform transition ease-out duration-200"
-                enter-from-class="opacity-0 scale-50"
-                enter-to-class="opacity-100 scale-100"
-                leave-active-class="transform transition ease-in duration-300"
-                leave-from-class="opacity-100 scale-100"
-                leave-to-class="opacity-0 scale-150"
-            >
+            <transition enter-active-class="transform transition ease-out duration-200" enter-from-class="opacity-0 scale-50" enter-to-class="opacity-100 scale-100" leave-active-class="transform transition ease-in duration-300" leave-from-class="opacity-100 scale-100" leave-to-class="opacity-0 scale-150">
                 <div v-if="showTempPause" class="bg-black/40 text-white p-5 rounded-full backdrop-blur-md shadow-2xl">
                     <Pause class="w-12 h-12 fill-white" stroke-width="0" />
                 </div>
             </transition>
-
-            <transition 
-                enter-active-class="transform transition ease-out duration-200"
-                enter-from-class="opacity-0 scale-50"
-                enter-to-class="opacity-100 scale-100"
-                leave-active-class="transform transition ease-in duration-300"
-                leave-from-class="opacity-100 scale-100"
-                leave-to-class="opacity-0 scale-150"
-            >
+            <transition enter-active-class="transform transition ease-out duration-200" enter-from-class="opacity-0 scale-50" enter-to-class="opacity-100 scale-100" leave-active-class="transform transition ease-in duration-300" leave-from-class="opacity-100 scale-100" leave-to-class="opacity-0 scale-150">
                 <div v-if="showTempPlay" class="bg-black/40 text-white p-5 rounded-full backdrop-blur-md shadow-2xl">
                     <Play class="w-12 h-12 fill-white ml-1" stroke-width="0" />
                 </div>
             </transition>
         </div>
 
-        <div v-if="!isPlaying && !pausedByInteraction" class="absolute inset-0 flex items-center justify-center z-30 bg-black/40 backdrop-blur-[2px] cursor-pointer transition-all duration-300" @click="togglePlay">
+        <div v-if="!isPlaying && !pausedByInteraction" class="absolute inset-0 flex items-center justify-center z-30 bg-black/40 backdrop-blur-[2px] cursor-pointer" @click="togglePlay">
             <div class="p-6 bg-white/20 rounded-full border-4 border-white backdrop-blur-md hover:scale-110 transition shadow-2xl animate-pulse">
                 <Play :size="48" fill="white" class="text-white ml-1" />
             </div>
@@ -171,49 +206,30 @@ const attemptAutoplay = () => {
         </div>
 
         <div class="absolute bottom-28 right-4 flex flex-col items-center gap-6 z-20">
-            <button 
-                @click.stop="!clip.completed && $emit('open-quiz')" 
-                class="flex flex-col items-center gap-1 group transition"
-                :class="clip.completed ? 'cursor-default' : 'cursor-pointer active:scale-95'"
-            >
-                <div 
-                    v-if="clip.completed && clip.won" 
-                    class="p-3 bg-green-500/10 border border-green-500/50 rounded-full backdrop-blur-md text-green-400 shadow-[0_0_15px_rgba(74,222,128,0.2)] flex items-center justify-center"
-                >
+            <button @click.stop="!clip.completed && $emit('open-quiz')" class="flex flex-col items-center gap-1 group transition" :class="clip.completed ? 'cursor-default' : 'cursor-pointer active:scale-95'">
+                <div v-if="clip.completed && clip.won" class="p-3 bg-green-500/10 border border-green-500/50 rounded-full backdrop-blur-md text-green-400 shadow-[0_0_15px_rgba(74,222,128,0.2)] flex items-center justify-center">
                     <CheckCircle :size="24" stroke-width="2.5" />
                 </div>
-
-                <div 
-                    v-else-if="clip.completed && !clip.won" 
-                    class="p-3 bg-red-500/10 border border-red-500/50 rounded-full backdrop-blur-md text-red-500 shadow-[0_0_15px_rgba(239,68,68,0.2)] flex items-center justify-center"
-                >
+                <div v-else-if="clip.completed && !clip.won" class="p-3 bg-red-500/10 border border-red-500/50 rounded-full backdrop-blur-md text-red-500 shadow-[0_0_15px_rgba(239,68,68,0.2)] flex items-center justify-center">
                     <X :size="24" stroke-width="2.5" />
                 </div>
-
-                <div 
-                    v-else 
-                    class="p-3 bg-yellow-500 rounded-full text-black group-hover:scale-110 transition shadow-[0_0_15px_rgba(234,179,8,0.6)] animate-pulse flex items-center justify-center"
-                >
+                <div v-else class="p-3 bg-yellow-500 rounded-full text-black group-hover:scale-110 transition shadow-[0_0_15px_rgba(234,179,8,0.6)] animate-pulse flex items-center justify-center">
                     <Brain :size="26" stroke-width="2.5" />
                 </div>
-                
-                <span 
-                    class="text-xs font-bold drop-shadow-md"
-                    :class="{
-                        'text-green-400': clip.completed && clip.won,
-                        'text-red-400': clip.completed && !clip.won,
-                        'text-yellow-400': !clip.completed
-                    }"
-                >
+                <span class="text-xs font-bold drop-shadow-md" :class="{'text-green-400': clip.completed && clip.won, 'text-red-400': clip.completed && !clip.won, 'text-yellow-400': !clip.completed}">
                     {{ clip.completed ? (clip.won ? 'Genial' : 'Falló') : 'Quiz' }}
                 </span>
             </button>
 
-            <button class="flex flex-col items-center gap-1 text-white group active:scale-90 transition">
-                <div class="p-3 bg-white/10 border border-white/20 rounded-full backdrop-blur-md group-hover:bg-red-500/20 group-hover:border-red-500 transition shadow-lg">
-                    <Heart :size="24" stroke-width="2.5" class="group-hover:text-red-500 transition" />
+            <button @click="toggleLike" class="flex flex-col items-center gap-1 text-white group active:scale-90 transition">
+                <div class="p-3 bg-white/10 border border-white/20 rounded-full backdrop-blur-md transition shadow-lg"
+                    :class="{'bg-red-500/20 border-red-500': isLiked}">
+                    <Heart :size="24" 
+                        stroke-width="2.5" 
+                        :class="isLiked ? 'text-red-500 fill-red-500' : 'text-white'" 
+                        class="transition-all duration-300" />
                 </div>
-                <span class="text-xs font-bold drop-shadow-md">1.2k</span>
+                <span class="text-xs font-bold drop-shadow-md">{{ isLiked ? 'Liked' : 'Like' }}</span>
             </button>
 
             <button @click="toggleMute" class="p-3 bg-white/10 border border-white/20 rounded-full backdrop-blur-md text-white hover:bg-white/30 transition shadow-lg active:scale-90">
