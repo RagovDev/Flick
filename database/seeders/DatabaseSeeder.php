@@ -13,7 +13,7 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        $this->call(ClipSeeder::class);
+        $this->call(RoleSeeder::class);
         
         // User::factory(10)->create();
 

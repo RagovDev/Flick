@@ -7,14 +7,13 @@ const props = defineProps({
     text: { type: String, required: true }
 });
 
-const emit = defineEmits(['word-clicked', 'popover-closed']); // Agregamos 'popover-closed'
+const emit = defineEmits(['word-clicked', 'popover-closed']); 
 
 const loadingWordIndex = ref(null);
 const savedWordIndex = ref(null);
 
-// NUEVO: Estado para el Popover
-const activeWordIndex = ref(null); // Qué palabra tiene el popover abierto
-const activeWordData = ref(null);  // Datos de la palabra (traducción, etc)
+const activeWordIndex = ref(null); 
+const activeWordData = ref(null);  
 
 const words = computed(() => {
     if (!props.text) return [];
@@ -27,33 +26,57 @@ const handleWordClick = async (word, index) => {
     // 1. Si tocas la misma palabra, cerramos el toggle
     if (activeWordIndex.value === index) {
         activeWordIndex.value = null;
-        emit('popover-closed'); // <--- AVISAMOS AQUÍ
+        emit('popover-closed'); 
         return;
     }
 
-    emit('word-clicked'); // Pausar video (ya existente)
+    emit('word-clicked'); // Pausa el video
 
     const term = cleanWord(word);
     if (!term) return;
 
     loadingWordIndex.value = index;
-    activeWordIndex.value = null; // Cerramos otros popovers mientras carga
+    activeWordIndex.value = null; // Cerramos otros popovers
 
     try {
-        const response = await axios.post('/vocabulary/save', { term: term });
+        // PASO A: Traducir con la IA usando el contexto
+        const translateResponse = await axios.post('/flick/translate', { 
+            word: term,
+            context: props.text 
+        });
         
-        // 2. Guardamos datos para mostrar en el Popover
-        activeWordData.value = response.data.word;
-        
-        // Feedback visual
-        savedWordIndex.value = index;
-        activeWordIndex.value = index; // ABRIMOS EL POPOVER
+        const translationData = translateResponse.data;
 
-        // Quitamos el check verde rápido, pero dejamos el popover abierto
+        // PASO B: Guardar la palabra EN TU BASE DE DATOS para el repaso
+        // Le enviamos el término y la traducción que nos dio la IA
+        await axios.post('/vocabulary/save', { 
+            term: term,
+            translation: translationData.translation // Opcional: si tu BD guarda la traducción
+        });
+        
+        // 3. Mostramos la información en el Popover
+        activeWordData.value = {
+            term: term,
+            translation: translationData.translation,
+            phonetic: translationData.phonetic
+        };
+        
+        // Feedback visual de éxito
+        savedWordIndex.value = index;
+        activeWordIndex.value = index; // Abrimos el Popover
+
         setTimeout(() => { savedWordIndex.value = null; }, 1500);
 
     } catch (error) {
-        console.error(error);
+        console.error("Error en el proceso:", error);
+        
+        // Si algo falla, al menos mostramos el error
+        activeWordData.value = {
+            term: term,
+            translation: 'Error de red',
+            phonetic: '/.../'
+        };
+        activeWordIndex.value = index; 
     } finally {
         loadingWordIndex.value = null;
     }
@@ -61,12 +84,55 @@ const handleWordClick = async (word, index) => {
 
 const closePopover = () => {
     activeWordIndex.value = null;
-    emit('popover-closed'); // <--- AVISAMOS AQUÍ TAMBIÉN (Botón X)
+    emit('popover-closed'); 
 };
 </script>
 
 <template>
     <div class="text-center leading-snug select-none relative">
+        
+        <transition 
+            enter-active-class="transition ease-out duration-200"
+            enter-from-class="opacity-0 translate-y-4 scale-95"
+            enter-to-class="opacity-100 translate-y-0 scale-100"
+            leave-active-class="transition ease-in duration-150"
+            leave-from-class="opacity-100 translate-y-0 scale-100"
+            leave-to-class="opacity-0 translate-y-4 scale-95"
+        >
+            <div 
+                v-if="activeWordIndex !== null && activeWordData" 
+                class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-6 w-56 sm:w-64 z-50 pointer-events-auto cursor-default"
+                @click.stop 
+            >
+                <div class="bg-gray-900/95 backdrop-blur-xl border border-gray-700 rounded-xl shadow-[0_10px_40px_rgba(0,0,0,0.8)] p-4 text-left relative overflow-hidden group-popover">
+                    
+                    <div class="absolute top-0 right-0 w-16 h-16 bg-yellow-500/10 rounded-full blur-xl -mr-8 -mt-8"></div>
+
+                    <button @click.stop="closePopover" class="absolute top-2 right-2 text-gray-500 hover:text-white transition">
+                        <X size="14" />
+                    </button>
+
+                    <div class="mb-2">
+                        <h3 class="text-white font-bold text-lg capitalize leading-none">{{ activeWordData.term }}</h3>
+                        <div class="flex items-center gap-1 text-gray-400 text-xs mt-1 font-mono">
+                            <span>{{ activeWordData.phonetic || '/.../' }}</span>
+                            <Volume2 size="10" class="text-gray-500" />
+                        </div>
+                    </div>
+
+                    <div class="border-t border-gray-700/50 pt-2 mt-2">
+                        <p class="text-xs text-gray-500 uppercase tracking-wider font-bold mb-0.5">Significado</p>
+                        <p class="text-yellow-400 font-bold text-base leading-tight">
+                            {{ activeWordData.translation || 'Cargando...' }}
+                        </p>
+                    </div>
+                    
+                </div>
+                
+                <div class="absolute -bottom-1.5 left-1/2 transform -translate-x-1/2 w-3 h-3 bg-gray-900 border-b border-r border-gray-700 rotate-45"></div>
+            </div>
+        </transition>
+
         <span 
             v-for="(word, index) in words" 
             :key="index"
@@ -81,55 +147,12 @@ const closePopover = () => {
         >
             {{ word }}
 
-            <span v-if="loadingWordIndex === index" class="absolute -top-5 left-1/2 -translate-x-1/2">
+            <span v-if="loadingWordIndex === index" class="absolute -top-5 left-1/2 transform -translate-x-1/2">
                 <Loader2 class="w-4 h-4 text-yellow-400 animate-spin drop-shadow-md" />
             </span>
-
-            <span v-if="savedWordIndex === index && activeWordIndex !== index" class="absolute -top-5 left-1/2 -translate-x-1/2 animate-bounce-short">
+            <span v-if="savedWordIndex === index && activeWordIndex !== index" class="absolute -top-5 left-1/2 transform -translate-x-1/2 animate-bounce-short">
                 <Check class="w-5 h-5 text-green-400 font-black drop-shadow-md" stroke-width="3" />
             </span>
-
-            <transition 
-                enter-active-class="transition ease-out duration-200"
-                enter-from-class="opacity-0 translate-y-2 scale-95"
-                enter-to-class="opacity-100 translate-y-0 scale-100"
-                leave-active-class="transition ease-in duration-150"
-                leave-from-class="opacity-100 translate-y-0 scale-100"
-                leave-to-class="opacity-0 translate-y-2 scale-95"
-            >
-                <div 
-                    v-if="activeWordIndex === index && activeWordData" 
-                    class="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 w-48 z-50 pointer-events-auto cursor-default"
-                    @click.stop 
-                >
-                    <div class="bg-gray-900/95 backdrop-blur-xl border border-gray-700 rounded-xl shadow-2xl p-4 text-left relative overflow-hidden group-popover">
-                        
-                        <div class="absolute top-0 right-0 w-16 h-16 bg-yellow-500/10 rounded-full blur-xl -mr-8 -mt-8"></div>
-
-                        <button @click.stop="closePopover" class="absolute top-2 right-2 text-gray-500 hover:text-white transition">
-                            <X size="14" />
-                        </button>
-
-                        <div class="mb-2">
-                            <h3 class="text-white font-bold text-lg capitalize leading-none">{{ activeWordData.term }}</h3>
-                            <div class="flex items-center gap-1 text-gray-400 text-xs mt-1 font-mono">
-                                <span>{{ activeWordData.phonetic || '/.../' }}</span>
-                                <Volume2 size="10" class="text-gray-500" />
-                            </div>
-                        </div>
-
-                        <div class="border-t border-gray-700/50 pt-2 mt-2">
-                            <p class="text-xs text-gray-500 uppercase tracking-wider font-bold mb-0.5">Significado</p>
-                            <p class="text-yellow-400 font-bold text-base leading-tight">
-                                {{ activeWordData.translation || 'Cargando...' }}
-                            </p>
-                        </div>
-                        
-                    </div>
-
-                    <div class="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-gray-900 border-b border-r border-gray-700 transform rotate-45"></div>
-                </div>
-            </transition>
         </span>
     </div>
 </template>

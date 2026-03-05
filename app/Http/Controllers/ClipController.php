@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 use App\Models\Like;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Http;
 
 class ClipController extends Controller
 {
@@ -20,7 +21,11 @@ class ClipController extends Controller
     public function index(Request $request)
     {
         // 1. PREPARAR QUERY (Siempre con preguntas)
-        $query = Clip::with(['questions.options']);
+        $query = Clip::with(['questions.options'])
+            ->withCount('likes')
+            ->withExists(['likes' => function ($query) {
+                $query->where('user_id', Auth::id());
+            }]);
 
         // 2. FILTRO DE CATEGORÍA
         if ($request->has('category') && $request->category !== 'all') {
@@ -38,8 +43,11 @@ class ClipController extends Controller
 
         // 4. FALLBACK: Si ya vio todo, repetimos (pero cargando preguntas)
         if (!$clip) {
-            // CORRECCIÓN IMPORTANTE: Volvemos a usar with() aquí
-            $query = Clip::with(['questions.options']);
+            $query = Clip::with(['questions.options'])
+                ->withCount('likes')
+                ->withExists(['likes' => function ($query) {
+                    $query->where('user_id', Auth::id());
+                }]);
 
             if ($request->has('category') && $request->category !== 'all') {
                 $query->where('category', $request->category);
@@ -52,8 +60,7 @@ class ClipController extends Controller
             return redirect()->route('dashboard')->with('error', 'No hay videos en esa categoría aún.');
         }
 
-        // 6. INYECCIÓN DE ESTADO (SOLUCIÓN "ME DEJA CONTESTAR DE NUEVO")
-        // Le pegamos al objeto clip la información de si ya fue completado
+        // 6. INYECCIÓN DE ESTADO
         $this->attachUserProgress($clip);
 
         return Inertia::render('Player', [
@@ -70,6 +77,7 @@ class ClipController extends Controller
         // Función anónima para no repetir la lógica de carga de relaciones y likes
         $getBaseQuery = function () use ($request) {
             return Clip::with(['questions.options'])
+                ->withCount('likes')
                 ->withExists(['likes' => function ($query) {
                     $query->where('user_id', Auth::id());
                 }]);
@@ -105,10 +113,9 @@ class ClipController extends Controller
             return response()->json(['message' => 'No more clips'], 204);
         }
 
-        $this->attachUserProgress($clip);
-
-        // IMPORTANTE: Mapeamos el resultado de withExists a is_liked para el Frontend
-        $clip->is_liked = $clip->likes_exists;
+        if ($clip) {
+            $this->attachUserProgress($clip);
+        }
 
         return response()->json($clip);
     }
@@ -230,6 +237,58 @@ class ClipController extends Controller
         } catch (\Exception $e) {
             Log::error("Error en Like: " . $e->getMessage());
             return response()->json(['error' => 'No se pudo guardar'], 500);
+        }
+    }
+
+    /**
+     * Traduce una palabra basándose en el contexto del subtítulo usando Gemini.
+     */
+    public function translateWord(Request $request)
+    {
+        $request->validate([
+            'word' => 'required|string',
+            'context' => 'required|string',
+        ]);
+
+        $apiKey = env('GEMINI_API_KEY');
+
+        $prompt = "Actúa como un profesor de inglés. Traduce la palabra '{$request->word}' al español, basándote estrictamente en este contexto: '{$request->context}'. 
+        Responde ÚNICAMENTE con un JSON válido con esta estructura:
+        {
+            \"translation\": \"Traducción aquí\",
+            \"phonetic\": \"/pronunciación/\"
+        }";
+
+        try {
+            $response = \Illuminate\Support\Facades\Http::withHeaders([
+                'Content-Type' => 'application/json',
+            ])->post("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key={$apiKey}", [
+                'contents' => [
+                    ['parts' => [['text' => $prompt]]]
+                ]
+            ]);
+
+            // Si Google responde con éxito (HTTP 200)
+            if ($response->successful()) {
+                $aiText = $response->json('candidates.0.content.parts.0.text');
+                $aiText = preg_replace('/```json|```/', '', $aiText);
+                return response()->json(json_decode(trim($aiText), true));
+            } else {
+                // SI FALLA, QUE NOS DIGA LA VERDAD DE GOOGLE:
+                return response()->json([
+                    'translation' => 'Error de Google',
+                    'phonetic' => '',
+                    'debug_google' => $response->json() // <-- Esto nos mostrará el problema real
+                ], 500);
+            }
+            
+        } catch (\Exception $e) {
+            // SI FALLA LARAVEL O LA RED:
+            return response()->json([
+                'translation' => 'Error de Laravel',
+                'phonetic' => '',
+                'debug_laravel' => $e->getMessage()
+            ], 500);
         }
     }
 }

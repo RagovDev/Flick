@@ -28,8 +28,8 @@ const isShaking = ref(false);
 const showSuccessToast = ref(false);
 
 // Sonidos
-const soundCorrect = new Audio('https://cdn.pixabay.com/audio/2021/08/04/audio_bb630cc098.mp3'); 
-const soundWrong = new Audio('https://cdn.pixabay.com/download/audio/2022/03/24/audio_c8c8a73467.mp3?filename=wrong-answer-126515.mp3'); 
+const soundCorrect = new Audio('audio/quiz/correct.mp3'); 
+const soundWrong = new Audio('audio/quiz/wrong.mp3'); 
 soundCorrect.volume = 0.5; soundWrong.volume = 0.6;
 
 

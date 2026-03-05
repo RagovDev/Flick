@@ -10,7 +10,7 @@ class Clip extends Model
     protected $fillable = ['title', 'video_url', 'difficulty', 'category', 'transcript_json'];
 
     // En tu modelo Clip.php
-    protected $appends = ['thumbnail_url', 'is_liked'];
+    protected $appends = ['thumbnail_url', 'is_liked', 'likes_count'];
 
     // Importante: castear el JSON a array automáticamente
     protected $casts = [
@@ -40,11 +40,17 @@ class Clip extends Model
 
     public function getIsLikedAttribute()
     {
-        return $this->likes_exists ?? false;
+        return (bool) ($this->likes_exists ?? false);
     }
 
     public function likes()
-{
-    return $this->hasMany(Like::class);
-}
+    {
+        return $this->hasMany(Like::class);
+    }
+
+    public function getLikesCountAttribute()
+    {
+        // Si hicimos withCount('likes'), Laravel guarda el resultado en 'likes_count'
+        return (int) ($this->likes_count ?? 0);
+    }
 }

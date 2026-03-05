@@ -44,6 +44,7 @@ Route::middleware(['auth', 'verified'])->group(function (){
     Route::post('/flick/check', [ClipController::class, 'check'])->name('flick.check');
     Route::get('flick/watch/{id}', [ClipController::class, 'show'])->name('flick.show');
     Route::post('/flick/like/{clip}', [ClipController::class, 'toggleLike'])->name('flick.like');
+    Route::post('/flick/translate', [ClipController::class, 'translateWord'])->name('flick.translate');
 
     # -----------------------------------
     #   Vocabulario
