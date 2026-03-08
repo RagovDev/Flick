@@ -252,17 +252,22 @@ class ClipController extends Controller
 
         $apiKey = env('GEMINI_API_KEY');
 
-        $prompt = "Actúa como un profesor de inglés. Traduce la palabra '{$request->word}' al español, basándote estrictamente en este contexto: '{$request->context}'. 
+        $prompt = "Actúa como un profesor de inglés nativo. Traduce la palabra '{$request->word}' al español, basándote estrictamente en el contexto de esta frase: '{$request->context}'.
+
+        Requisitos adicionales:
+        1. La 'phonetic' debe ser la pronunciación en INGLÉS utilizando el Alfabeto Fonético Internacional (IPA).
+        2. Asegúrate de que la traducción sea la más adecuada para el sentido de la frase proporcionada.
+
         Responde ÚNICAMENTE con un JSON válido con esta estructura:
         {
             \"translation\": \"Traducción aquí\",
-            \"phonetic\": \"/pronunciación/\"
+            \"phonetic\": \"/pronunciación_en_IPA/\"
         }";
 
         try {
             $response = \Illuminate\Support\Facades\Http::withHeaders([
                 'Content-Type' => 'application/json',
-            ])->post("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key={$apiKey}", [
+            ])->post("https://generativelanguage.googleapis.com/v1beta/models/gemma-3-27b-it:generateContent?key={$apiKey}", [
                 'contents' => [
                     ['parts' => [['text' => $prompt]]]
                 ]

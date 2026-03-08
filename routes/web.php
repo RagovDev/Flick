@@ -8,8 +8,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\AdminClipController;
 use App\Http\Controllers\VocabularyController;
 use App\Http\Controllers\AdminDashboardController;
-
-Route::post('/flick/like/{clip}', [ClipController::class, 'toggleLike'])->name('flick.like')->middleware('auth');
+use App\Http\Controllers\GoogleAuthController;
 
 Route::get('/', function () {
     return Inertia::render('Welcome', [
@@ -17,8 +16,16 @@ Route::get('/', function () {
     ]);
 })->name('home');
 
-Route::middleware(['auth', 'verified'])->group(function (){
-    
+// Rutas publicas
+# -----------------------------------
+#   Google Autenticator
+# -----------------------------------
+Route::get('/auth/google', [GoogleAuthController::class, 'redirect'])->name('google.login');
+Route::get('/auth/google/callback', [GoogleAuthController::class, 'callback']);
+
+// Rutas protegidas
+Route::middleware(['auth', 'verified'])->group(function () {
+
     # -----------------------------------
     #   ZONA RESTRINGIDA (Solo Admins) 🚨
     # -----------------------------------
@@ -26,7 +33,7 @@ Route::middleware(['auth', 'verified'])->group(function (){
         // Formulario de creación
         Route::get('/admin/clips/upload', [AdminClipController::class, 'create'])->name('admin.clips.create');
         // Guardar datos
-        Route::post('/admin/clips/upload', [AdminClipController::class, 'store'])->name('admin.clips.store');  
+        Route::post('/admin/clips/upload', [AdminClipController::class, 'store'])->name('admin.clips.store');
         // Dashboard estadistico administrativo
         Route::get('/admin/dashboard', [AdminDashboardController::class, 'index'])->name('admin.dashboard');
     });
@@ -52,7 +59,7 @@ Route::middleware(['auth', 'verified'])->group(function (){
     Route::post('/vocabulary/save', [VocabularyController::class, 'store'])->name('vocabulary.save');
     Route::get('/vocabulary', [VocabularyController::class, 'index'])->name('vocabulary.index');
     Route::get('/vocabulary/practice', [VocabularyController::class, 'practice'])->name('vocabulary.practice');
-
+    Route::delete('/vocabulary/{vocabulary}', [VocabularyController::class, 'destroy'])->name('vocabulary.destroy');
 });
 
-require __DIR__.'/settings.php';
+require __DIR__ . '/settings.php';

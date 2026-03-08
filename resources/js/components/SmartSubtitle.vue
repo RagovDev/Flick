@@ -89,7 +89,7 @@ const closePopover = () => {
 </script>
 
 <template>
-    <div class="text-center leading-snug select-none relative">
+    <div class="text-center leading-relaxed select-none relative">
         
         <transition 
             enter-active-class="transition ease-out duration-200"
@@ -129,7 +129,7 @@ const closePopover = () => {
                     
                 </div>
                 
-                <div class="absolute -bottom-1.5 left-1/2 transform -translate-x-1/2 w-3 h-3 bg-gray-900 border-b border-r border-gray-700 rotate-45"></div>
+                
             </div>
         </transition>
 

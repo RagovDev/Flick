@@ -46,27 +46,34 @@ const user = page.props.auth.user;
                                     Subir Video
                                 </Link>
                             </template>
+                            
                         </div>
                     </div>
 
                     <div class="hidden sm:flex sm:items-center sm:ml-6">
-                        <div class="flex items-center gap-4">
-                            <div class="text-sm font-bold text-yellow-400 flex items-center gap-1 bg-yellow-400/10 px-3 py-1 rounded-full border border-yellow-400/20 shadow-inner">
+                        <div class="flex items-center gap-4"> <div class="text-sm font-bold text-yellow-400 flex items-center gap-1 bg-yellow-400/10 px-3 py-1.5 rounded-full border border-yellow-400/20 shadow-inner">
                                 🏆 {{ user.score || 0 }} pts
                             </div>
                             
-                            <div class="relative ml-3 group cursor-pointer flex items-center gap-2 py-4">
-                                <div class="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center border border-gray-600">
+                            <div class="h-6 w-px bg-gray-700 mx-1"></div>
+                            
+                            <div class="flex items-center gap-2 cursor-pointer group">
+                                <div class="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center border border-gray-600 transition group-hover:border-gray-500">
                                     <UserIcon class="w-4 h-4 text-gray-400" />
                                 </div>
                                 <span class="text-sm font-medium text-gray-300 group-hover:text-white transition">{{ user.name }}</span>
-                                
-                                <div class="absolute right-0 top-[100%] w-48 bg-gray-800 rounded-xl shadow-2xl border border-gray-700 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 overflow-hidden transform origin-top-right scale-95 group-hover:scale-100">
-                                    <Link :href="route('logout')" method="post" as="button" class="w-full text-left px-4 py-3 text-sm text-gray-300 hover:bg-gray-700 hover:text-white flex items-center gap-2 transition">
-                                        <LogOut class="w-4 h-4 text-red-400" /> Cerrar Sesión
-                                    </Link>
-                                </div>
                             </div>
+
+                            <Link 
+                                :href="route('logout')" 
+                                method="post" 
+                                as="button" 
+                                class="p-2 text-gray-400 hover:text-red-500 hover:bg-red-500/10 rounded-full transition-all duration-200 focus:outline-none"
+                                title="Cerrar sesión"
+                            >
+                                <LogOut :size="20" stroke-width="2.5" />
+                            </Link>
+                            
                         </div>
                     </div>
 

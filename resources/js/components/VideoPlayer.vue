@@ -190,8 +190,8 @@ const attemptAutoplay = () => {
             </div>
         </div>
 
-        <div v-if="currentSubtitleText" class="absolute bottom-32 left-6 right-20 z-20 flex justify-start pointer-events-none drop-shadow-lg">
-            <div class="pointer-events-auto max-w-[85%] sm:max-w-[75%]">
+        <div v-if="currentSubtitleText" class="absolute bottom-32 left-0 w-full z-20 flex justify-center px-4 pr-20 pointer-events-none drop-shadow-lg">
+            <div class="pointer-events-auto text-center w-full">
                 <SmartSubtitle 
                     :text="currentSubtitleText" 
                     @word-clicked="handleWordInteraction" 

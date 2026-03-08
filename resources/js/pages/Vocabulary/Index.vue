@@ -1,5 +1,5 @@
 <script setup>
-import { Head, Link } from '@inertiajs/vue3';
+import { Head, Link, router } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/layouts/AuthLayout.vue';
 import { Search, BookOpen, Brain, Star, Trash2 } from 'lucide-vue-next';
 import { ref, computed } from 'vue';
@@ -20,9 +20,18 @@ const filteredWords = computed(() => {
 
 // Función para determinar el color según el nivel de maestría (Gamificación)
 const getLevelColor = (level) => {
-    if (level === 0) return 'bg-gray-600'; // Nuevo
-    if (level < 3) return 'bg-yellow-500'; // Aprendiendo
-    return 'bg-green-500'; // Maestro
+    if (level === 0) return 'bg-gray-600 shadow-[0_0_10px_rgba(75,85,99,0.5)]'; 
+    if (level < 3) return 'bg-yellow-500 shadow-[0_0_10px_rgba(234,179,8,0.4)]'; 
+    return 'bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.4)]'; 
+};
+
+// Funcion para borrar una palabra de la coleccion
+const deleteWord = (id) => {
+    if (confirm('¿Estás seguro de que quieres eliminar esta palabra de tu vocabulario?')) {
+        router.delete(route('vocabulary.destroy', id), {
+            preserveScroll: true, // Para que la página no salte al inicio al borrar
+        });
+    }
 };
 </script>
 
@@ -79,31 +88,43 @@ const getLevelColor = (level) => {
                     </Link>
                 </div>
 
-                <div v-else class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                <div v-else> <transition-group 
+                    tag="div" 
+                    class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6"
+                    enter-active-class="transition duration-300 ease-out"
+                    enter-from-class="transform scale-95 opacity-0"
+                    leave-active-class="transition duration-300 ease-in absolute" 
+                    leave-to-class="transform scale-95 opacity-0"
+                >
                     <div 
                         v-for="word in filteredWords" 
                         :key="word.id"
                         class="bg-gray-800 p-5 rounded-xl border border-gray-700 hover:border-yellow-500/50 transition group relative overflow-hidden"
                     >
-                        <div class="absolute left-0 top-0 bottom-0 w-1" :class="getLevelColor(word.level)"></div>
+                            <div class="absolute left-0 top-0 bottom-0 w-1" :class="getLevelColor(word.level)"></div>
 
-                        <div class="flex justify-between items-start mb-2">
-                            <h3 class="text-xl font-bold text-white capitalize">{{ word.term }}</h3>
-                            <button class="text-gray-600 hover:text-red-400 transition">
-                                <Trash2 size="16" />
-                            </button>
+                            <div class="flex justify-between items-start mb-2">
+                                <h3 class="text-xl font-bold text-white capitalize">{{ word.term }}</h3>
+                                <button 
+                                    @click="deleteWord(word.id)" 
+                                    class="text-gray-500 hover:text-red-500 transition-colors p-1"
+                                    title="Eliminar palabra"
+                                >
+                                    <Trash2 class="w-4 h-4" /> 
+                                </button>
+                            </div>
+
+                            <p class="text-gray-400 text-sm mb-4 italic">{{ word.translation || 'Sin traducción' }}</p>
+
+                            <div class="flex items-center justify-between text-xs text-gray-500 mt-4 border-t border-gray-700 pt-3">
+                                <span class="flex items-center gap-1">
+                                    <Star size="12" :class="word.level > 0 ? 'text-yellow-500' : 'text-gray-600'" />
+                                    Nvl {{ word.level }}
+                                </span>
+                                <span>{{ word.added_at }}</span>
+                            </div>
                         </div>
-
-                        <p class="text-gray-400 text-sm mb-4 italic">{{ word.translation || 'Sin traducción' }}</p>
-
-                        <div class="flex items-center justify-between text-xs text-gray-500 mt-4 border-t border-gray-700 pt-3">
-                            <span class="flex items-center gap-1">
-                                <Star size="12" :class="word.level > 0 ? 'text-yellow-500' : 'text-gray-600'" />
-                                Nvl {{ word.level }}
-                            </span>
-                            <span>{{ word.added_at }}</span>
-                        </div>
-                    </div>
+                    </transition-group>
                 </div>
 
             </div>

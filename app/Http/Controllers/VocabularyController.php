@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Http;
 use Inertia\Inertia;
+use App\Models\Vocabulary;
 
 class VocabularyController extends Controller
 {
@@ -59,7 +60,7 @@ class VocabularyController extends Controller
                 'mastery_level' => 0,
                 'next_review_at' => now(),
             ]);
-            
+
             return response()->json([
                 'status' => 'saved',
                 'message' => 'Guardado: ' . $word->translation, // Devolvemos la traducción para feedback
@@ -92,7 +93,7 @@ class VocabularyController extends Controller
                     'added_at' => $word->pivot->created_at->diffForHumans(),
                 ];
             });
-            
+
         return Inertia::render('Vocabulary/Index', [
             'words' => $words
         ]);
@@ -121,5 +122,21 @@ class VocabularyController extends Controller
         return Inertia::render('Vocabulary/Practice', [
             'words' => $words
         ]);
+    }
+
+    /**
+     * Elimina una palabra de tu coleccion.
+     */
+    public function destroy(Vocabulary $vocabulary)
+    {
+        // Verificamos que la palabra pertenezca al usuario que intenta borrarla
+        if ($vocabulary->user_id !== Auth::id()) {
+            abort(403);
+        }
+
+        $vocabulary->delete();
+
+        // Redirigimos de vuelta para que Inertia refresque la lista automáticamente
+        return redirect()->back();
     }
 }
