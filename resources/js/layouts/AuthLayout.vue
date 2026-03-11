@@ -89,9 +89,15 @@ const user = page.props.auth.user;
             <div :class="{'block': showingNavigationDropdown, 'hidden': !showingNavigationDropdown}" class="sm:hidden bg-gray-800 border-t border-gray-700">
                 <div class="pt-2 pb-3 space-y-1">
                     <Link :href="route('dashboard')" class="block pl-3 pr-4 py-2 border-l-4 text-base font-medium transition duration-150 ease-in-out" :class="route().current('dashboard') ? 'border-yellow-400 text-white bg-gray-700/50' : 'border-transparent text-gray-400 hover:text-gray-200 hover:bg-gray-700'">Explorar (Feed)</Link>
-                    <Link :href="route('admin.dashboard')" class="block pl-3 pr-4 py-2 border-l-4 text-base font-medium transition duration-150 ease-in-out" :class="route().current('admin.dashboard') ? 'border-yellow-400 text-white bg-gray-700/50' : 'border-transparent text-gray-400 hover:text-gray-200 hover:bg-gray-700'">Panel Admin</Link>
-                    <Link :href="route('admin.clips.create')" class="block pl-3 pr-4 py-2 border-l-4 text-base font-medium transition duration-150 ease-in-out" :class="route().current('admin.clips.create') ? 'border-yellow-400 text-white bg-gray-700/50' : 'border-transparent text-gray-400 hover:text-gray-200 hover:bg-gray-700'">Subir Video</Link>
+                    
+                    <Link :href="route('vocabulary.index')" class="block pl-3 pr-4 py-2 border-l-4 text-base font-medium transition duration-150 ease-in-out" :class="route().current('vocabulary.index') ? 'border-yellow-400 text-white bg-gray-700/50' : 'border-transparent text-gray-400 hover:text-gray-200 hover:bg-gray-700'">Vocabulario</Link>
+                    
+                    <template v-if="user.is_admin">
+                        <Link :href="route('admin.dashboard')" class="block pl-3 pr-4 py-2 border-l-4 text-base font-medium transition duration-150 ease-in-out" :class="route().current('admin.dashboard') ? 'border-yellow-400 text-white bg-gray-700/50' : 'border-transparent text-gray-400 hover:text-gray-200 hover:bg-gray-700'">Panel Admin</Link>
+                        <Link :href="route('admin.clips.create')" class="block pl-3 pr-4 py-2 border-l-4 text-base font-medium transition duration-150 ease-in-out" :class="route().current('admin.clips.create') ? 'border-yellow-400 text-white bg-gray-700/50' : 'border-transparent text-gray-400 hover:text-gray-200 hover:bg-gray-700'">Subir Video</Link>
+                    </template>
                 </div>
+                
                 <div class="pt-4 pb-1 border-t border-gray-700">
                     <div class="flex items-center justify-between px-4 mb-2">
                         <div class="font-medium text-base text-gray-200">{{ user.name }}</div>

@@ -197,10 +197,10 @@ onBeforeUnmount(() => {
 <template>
     <Head title="Reproductor Flick" />
 
-    <div class="h-screen w-full bg-gray-900 flex justify-center overflow-hidden relative">
+    <div class="h-screen w-full bg-gray-900 flex flex-col items-center justify-center overflow-hidden relative">
         
-        <Link :href="route('dashboard')" class="absolute top-4 left-4 z-50 flex items-center gap-2 bg-black/40 backdrop-blur-md px-4 py-2 rounded-full hover:bg-black/60 text-white transition border border-white/10 group">
-            <ArrowLeft class="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+        <Link :href="route('dashboard')" class="absolute top-4 left-4 z-50 flex items-center justify-center sm:justify-start gap-2 bg-black/40 backdrop-blur-md w-10 h-10 sm:w-auto sm:h-auto sm:px-4 sm:py-2 rounded-full hover:bg-black/60 text-white transition border border-white/10 group">
+            <ArrowLeft class="w-5 h-5 sm:w-4 sm:h-4 group-hover:-translate-x-1 transition-transform" />
             <span class="text-xs font-bold hidden sm:inline">Salir</span>
         </Link>
 
@@ -210,13 +210,13 @@ onBeforeUnmount(() => {
 
         <transition enter-active-class="transition ease-out duration-300" enter-from-class="opacity-0 scale-90" enter-to-class="opacity-100 scale-100">
             <div v-if="!isPracticeMode && clips.length > 0 && clips[currentIndex]?.completed" 
-                 class="absolute top-4 right-4 z-50 flex items-center gap-1.5 bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-full text-xs font-bold text-gray-300 border border-gray-500/50 shadow-lg">
+                 class="absolute top-4 right-16 z-50 flex items-center gap-1.5 bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-full text-xs font-bold text-gray-300 border border-gray-500/50 shadow-lg">
                 <RotateCcw class="w-3.5 h-3.5" />
                 <span>REPASO</span>
             </div>
         </transition>
 
-        <div class="w-full max-w-md h-full bg-black relative shadow-2xl overflow-hidden" :class="{ 'shake-animation': isShaking }">
+        <div class="w-full h-full sm:h-[85vh] sm:w-auto sm:aspect-[9/16] bg-black relative shadow-2xl overflow-hidden sm:rounded-3xl sm:border sm:border-gray-800 transition-all duration-300 flex-shrink-0" :class="{ 'shake-animation': isShaking }">
             
             <div class="relative w-full h-full overflow-hidden bg-black">
                 <Transition :name="transitionName">
@@ -226,7 +226,7 @@ onBeforeUnmount(() => {
                         ref="videoPlayerRef" 
                         :clip="clips[currentIndex]" 
                         :score="userScore"
-                        class="absolute inset-0 w-full h-full" 
+                        class="absolute inset-0 w-full h-full object-cover" 
                         @open-quiz="openQuiz" 
                     />
                 </Transition>
@@ -265,7 +265,6 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
-/* (MISMOS ESTILOS DE ANTES) */
 .shake-animation { animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both; }
 @keyframes shake {
   10%, 90% { transform: translate3d(-1px, 0, 0); }

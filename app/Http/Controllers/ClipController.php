@@ -2,14 +2,14 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Controllers\Controller;
+// Eliminamos "use App\Http\Controllers\Controller;" porque ya estamos en ese namespace
 use App\Models\Clip;
 use App\Models\Option;
 use App\Models\UserProgress;
+use App\Models\Like;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
-use App\Models\Like;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Http;
 
@@ -20,48 +20,12 @@ class ClipController extends Controller
      */
     public function index(Request $request)
     {
-        // 1. PREPARAR QUERY (Siempre con preguntas)
-        $query = Clip::with(['questions.options'])
-            ->withCount('likes')
-            ->withExists(['likes' => function ($query) {
-                $query->where('user_id', Auth::id());
-            }]);
+        // 🌟 Usamos nuestro nuevo motor de búsqueda centralizado
+        $clip = $this->findNextClip($request);
 
-        // 2. FILTRO DE CATEGORÍA
-        if ($request->has('category') && $request->category !== 'all') {
-            $query->where('category', $request->category);
-        }
-
-        // 3. BUSCAR VIDEO NO VISTO
-        $watchedIds = UserProgress::where('user_id', Auth::id())
-            ->where('watched', true)
-            ->pluck('clip_id');
-
-        $clip = $query->whereNotIn('id', $watchedIds)
-            ->inRandomOrder()
-            ->first();
-
-        // 4. FALLBACK: Si ya vio todo, repetimos (pero cargando preguntas)
-        if (!$clip) {
-            $query = Clip::with(['questions.options'])
-                ->withCount('likes')
-                ->withExists(['likes' => function ($query) {
-                    $query->where('user_id', Auth::id());
-                }]);
-
-            if ($request->has('category') && $request->category !== 'all') {
-                $query->where('category', $request->category);
-            }
-            $clip = $query->inRandomOrder()->first();
-        }
-
-        // 5. ERROR: Si no hay videos
         if (!$clip) {
             return redirect()->route('dashboard')->with('error', 'No hay videos en esa categoría aún.');
         }
-
-        // 6. INYECCIÓN DE ESTADO
-        $this->attachUserProgress($clip);
 
         return Inertia::render('Player', [
             'initialClip' => $clip,
@@ -74,47 +38,11 @@ class ClipController extends Controller
      */
     public function getNext(Request $request)
     {
-        // Función anónima para no repetir la lógica de carga de relaciones y likes
-        $getBaseQuery = function () use ($request) {
-            return Clip::with(['questions.options'])
-                ->withCount('likes')
-                ->withExists(['likes' => function ($query) {
-                    $query->where('user_id', Auth::id());
-                }]);
-        };
-
-        $query = $getBaseQuery();
-
-        if ($request->has('category') && $request->category !== 'all') {
-            $query->where('category', $request->category);
-        }
-
-        $watchedIds = UserProgress::where('user_id', Auth::id())
-            ->where('watched', true)
-            ->pluck('clip_id');
-
-        // Intentar buscar clips no vistos
-        $clip = $query->whereNotIn('id', $watchedIds)
-            ->inRandomOrder()
-            ->first();
-
-        // Si no hay clips nuevos, buscar cualquiera de la categoría (Respaldo)
-        if (!$clip) {
-            $query = $getBaseQuery();
-
-            if ($request->has('category') && $request->category !== 'all') {
-                $query->where('category', $request->category);
-            }
-
-            $clip = $query->inRandomOrder()->first();
-        }
+        // 🌟 Usamos el mismo motor aquí
+        $clip = $this->findNextClip($request);
 
         if (!$clip) {
             return response()->json(['message' => 'No more clips'], 204);
-        }
-
-        if ($clip) {
-            $this->attachUserProgress($clip);
         }
 
         return response()->json($clip);
@@ -139,7 +67,7 @@ class ClipController extends Controller
         // Seguridad Backend: Si ya respondió, rechazamos el intento de sumar puntos
         if ($alreadyAnswered) {
             return response()->json([
-                'correct' => false, // O true, da igual, no suma
+                'correct' => false,
                 'points_earned' => 0,
                 'total_score' => $user->score,
                 'message' => 'Ya respondiste este video.'
@@ -181,9 +109,6 @@ class ClipController extends Controller
     {
         $clip = Clip::with('questions.options')->findOrFail($id);
 
-        // En modo práctica no necesitamos chequear progreso DB porque
-        // el frontend fuerza el modo "Repaso" con la prop isPracticeMode.
-
         return Inertia::render('Player', [
             'initialClip' => $clip,
             'userScore' => Auth::user()->score,
@@ -192,32 +117,13 @@ class ClipController extends Controller
     }
 
     /**
-     * Helper Privado: Adjunta el estado (completado/ganado) al objeto clip
-     */
-    private function attachUserProgress($clip)
-    {
-        if (!$clip) return;
-
-        $progress = UserProgress::where('user_id', Auth::id())
-            ->where('clip_id', $clip->id)
-            ->first();
-
-        // Creamos propiedades dinámicas que Vue leerá
-        $clip->completed = $progress ? true : false;
-
-        // Si existe progreso, miramos si acertó. Si no, false.
-        $clip->won = $progress ? (bool)$progress->answered_correctly : false;
-    }
-
-    /**
      * Funcion para que el usuario pueda dar like a un video
      */
     public function toggleLike($clipId)
     {
         try {
-            $userId = auth()->id();
+            $userId = Auth::id();
 
-            // 1. Buscamos si ya existe
             $like = Like::where('user_id', $userId)
                 ->where('clip_id', $clipId)
                 ->first();
@@ -227,7 +133,6 @@ class ClipController extends Controller
                 return response()->json(['status' => 'unliked']);
             }
 
-            // 2. Si no existe, lo creamos
             Like::create([
                 'user_id' => $userId,
                 'clip_id' => $clipId
@@ -252,48 +157,112 @@ class ClipController extends Controller
 
         $apiKey = env('GEMINI_API_KEY');
 
-        $prompt = "Actúa como un profesor de inglés nativo. Traduce la palabra '{$request->word}' al español, basándote estrictamente en el contexto de esta frase: '{$request->context}'.
+        $prompt = "
+        Eres un diccionario bilingüe experto (Inglés a Español). 
+        Tu tarea es traducir UNA sola palabra basándote en el contexto en el que se usa.
 
-        Requisitos adicionales:
-        1. La 'phonetic' debe ser la pronunciación en INGLÉS utilizando el Alfabeto Fonético Internacional (IPA).
-        2. Asegúrate de que la traducción sea la más adecuada para el sentido de la frase proporcionada.
+        Palabra objetivo: '{$request->word}'
+        Contexto de la frase: '{$request->context}'
 
-        Responde ÚNICAMENTE con un JSON válido con esta estructura:
+        REGLAS ESTRICTAS E INQUEBRANTABLES:
+        1. Traduce ÚNICAMENTE la 'Palabra objetivo'.
+        2. Usa el contexto SOLO para entender qué significado aplica, PERO PROHIBIDO traducir toda la frase.
+        3. La traducción debe ser muy concisa (máximo 1 a 3 palabras).
+        4. Devuelve ÚNICAMENTE un objeto JSON válido, sin texto adicional, sin formato markdown (sin ```json).
+        5. La 'phonetic' debe ser la pronunciación en INGLÉS utilizando el Alfabeto Fonético Internacional (IPA).
+
+        Usa exactamente esta estructura:
         {
-            \"translation\": \"Traducción aquí\",
-            \"phonetic\": \"/pronunciación_en_IPA/\"
-        }";
+            \"translation\": \"tu_traduccion_corta_aqui\",
+            \"phonetic\": \"/pronunciacion_en_IPA/\"
+        }
+        ";
 
         try {
             $response = \Illuminate\Support\Facades\Http::withHeaders([
                 'Content-Type' => 'application/json',
-            ])->post("https://generativelanguage.googleapis.com/v1beta/models/gemma-3-27b-it:generateContent?key={$apiKey}", [
+            ])->post("https://generativelanguage.googleapis.com/v1beta/models/gemma-3-27b-it:generateContent?key=" . $apiKey, [
                 'contents' => [
                     ['parts' => [['text' => $prompt]]]
                 ]
             ]);
 
-            // Si Google responde con éxito (HTTP 200)
             if ($response->successful()) {
                 $aiText = $response->json('candidates.0.content.parts.0.text');
                 $aiText = preg_replace('/```json|```/', '', $aiText);
                 return response()->json(json_decode(trim($aiText), true));
             } else {
-                // SI FALLA, QUE NOS DIGA LA VERDAD DE GOOGLE:
                 return response()->json([
                     'translation' => 'Error de Google',
                     'phonetic' => '',
-                    'debug_google' => $response->json() // <-- Esto nos mostrará el problema real
+                    'debug_google' => env('APP_DEBUG') ? $response->json() : null // Protege info en prod
                 ], 500);
             }
             
         } catch (\Exception $e) {
-            // SI FALLA LARAVEL O LA RED:
             return response()->json([
-                'translation' => 'Error de Laravel',
+                'translation' => 'Error de conexión',
                 'phonetic' => '',
-                'debug_laravel' => $e->getMessage()
+                'debug_laravel' => env('APP_DEBUG') ? $e->getMessage() : null
             ], 500);
         }
+    }
+
+    // ==========================================
+    // 🛠️ MÉTODOS PRIVADOS (Helpers)
+    // ==========================================
+
+    /**
+     * Motor centralizado para buscar el siguiente clip.
+     * Reutilizado por index() y getNext().
+     */
+    private function findNextClip(Request $request)
+    {
+        // 1. Preparamos la consulta base con sus relaciones
+        $query = Clip::with(['questions.options'])
+            ->withCount('likes')
+            ->withExists(['likes' => function ($q) {
+                $q->where('user_id', Auth::id());
+            }]);
+
+        if ($request->has('category') && $request->category !== 'all') {
+            $query->where('category', $request->category);
+        }
+
+        // 2. Buscamos qué videos ya vio el usuario
+        $watchedIds = UserProgress::where('user_id', Auth::id())
+            ->where('watched', true)
+            ->pluck('clip_id');
+
+        // 3. Intentamos traer un video nuevo
+        // Clonamos la query para no afectarla si necesitamos usar el fallback
+        $clip = (clone $query)->whereNotIn('id', $watchedIds)
+            ->inRandomOrder()
+            ->first();
+
+        // 4. Fallback: Si ya vio todos, le mostramos uno al azar
+        if (!$clip) {
+            $clip = $query->inRandomOrder()->first();
+        }
+
+        // 5. Inyectamos su estado de progreso antes de devolverlo
+        if ($clip) {
+            $this->attachUserProgress($clip);
+        }
+
+        return $clip;
+    }
+
+    /**
+     * Adjunta el estado (completado/ganado) al objeto clip
+     */
+    private function attachUserProgress($clip)
+    {
+        $progress = UserProgress::where('user_id', Auth::id())
+            ->where('clip_id', $clip->id)
+            ->first();
+
+        $clip->completed = $progress ? true : false;
+        $clip->won = $progress ? (bool)$progress->answered_correctly : false;
     }
 }

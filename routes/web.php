@@ -16,12 +16,13 @@ Route::get('/', function () {
     ]);
 })->name('home');
 
-// Rutas publicas
 # -----------------------------------
-#   Google Autenticator
+#   Rutas Públicas (Autenticación)
 # -----------------------------------
-Route::get('/auth/google', [GoogleAuthController::class, 'redirect'])->name('google.login');
-Route::get('/auth/google/callback', [GoogleAuthController::class, 'callback']);
+Route::controller(GoogleAuthController::class)->group(function () {
+    Route::get('/auth/google', 'redirect')->name('google.login');
+    Route::get('/auth/google/callback', 'callback');
+});
 
 // Rutas protegidas
 Route::middleware(['auth', 'verified'])->group(function () {
@@ -29,13 +30,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
     # -----------------------------------
     #   ZONA RESTRINGIDA (Solo Admins) 🚨
     # -----------------------------------
-    Route::middleware(['role:admin'])->group(function () {
-        // Formulario de creación
-        Route::get('/admin/clips/upload', [AdminClipController::class, 'create'])->name('admin.clips.create');
-        // Guardar datos
-        Route::post('/admin/clips/upload', [AdminClipController::class, 'store'])->name('admin.clips.store');
-        // Dashboard estadistico administrativo
-        Route::get('/admin/dashboard', [AdminDashboardController::class, 'index'])->name('admin.dashboard');
+    Route::middleware(['role:admin'])->prefix('admin')->name('admin.')->group(function () {
+        Route::get('/dashboard', [AdminDashboardController::class, 'index'])->name('dashboard');
+        
+        Route::controller(AdminClipController::class)->prefix('clips')->name('clips.')->group(function () {
+            Route::get('/upload', 'create')->name('create');
+            Route::post('/upload', 'store')->name('store');
+        });
     });
 
     # -----------------------------------
@@ -46,20 +47,24 @@ Route::middleware(['auth', 'verified'])->group(function () {
     # -----------------------------------
     #   Flick (Reproductor)
     # -----------------------------------
-    Route::get('/flick', [ClipController::class, 'index'])->name('flick.index');
-    Route::get('/flick/next', [ClipController::class, 'getNext'])->name('flick.next');
-    Route::post('/flick/check', [ClipController::class, 'check'])->name('flick.check');
-    Route::get('flick/watch/{id}', [ClipController::class, 'show'])->name('flick.show');
-    Route::post('/flick/like/{clip}', [ClipController::class, 'toggleLike'])->name('flick.like');
-    Route::post('/flick/translate', [ClipController::class, 'translateWord'])->name('flick.translate');
+    Route::controller(ClipController::class)->prefix('flick')->name('flick.')->group(function () {
+        Route::get('/', 'index')->name('index');
+        Route::get('/next', 'getNext')->name('next');
+        Route::post('/check', 'check')->name('check');
+        Route::get('/watch/{id}', 'show')->name('show');
+        Route::post('/like/{clip}', 'toggleLike')->name('like');
+        Route::post('/translate', 'translateWord')->name('translate');
+    });
 
     # -----------------------------------
     #   Vocabulario
     # -----------------------------------
-    Route::post('/vocabulary/save', [VocabularyController::class, 'store'])->name('vocabulary.save');
-    Route::get('/vocabulary', [VocabularyController::class, 'index'])->name('vocabulary.index');
-    Route::get('/vocabulary/practice', [VocabularyController::class, 'practice'])->name('vocabulary.practice');
-    Route::delete('/vocabulary/{vocabulary}', [VocabularyController::class, 'destroy'])->name('vocabulary.destroy');
+    Route::controller(VocabularyController::class)->prefix('vocabulary')->name('vocabulary.')->group(function () {
+        Route::get('/', 'index')->name('index');
+        Route::get('/practice', 'practice')->name('practice');
+        Route::post('/save', 'store')->name('store'); // 🌟 Bug corregido: ahora se llama 'store'
+        Route::delete('/{id}', 'destroy')->name('destroy');
+    });
 });
 
 require __DIR__ . '/settings.php';

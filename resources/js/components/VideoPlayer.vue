@@ -147,11 +147,11 @@ const attemptAutoplay = () => {
 <template>
     <div class="relative w-full h-full bg-black overflow-hidden group">
         
-        <div class="absolute top-6 left-6 z-30 flex items-center gap-2 bg-black/40 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10 transition-all hover:bg-black/60 shadow-lg">
+        <div class="absolute top-4 left-16 z-40 flex items-center gap-2 bg-black/40 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10 transition-all hover:bg-black/60 shadow-lg">
             <div class="w-3 h-3 bg-yellow-400 rounded-full animate-pulse shadow-[0_0_10px_rgba(250,204,21,0.8)]"></div>
             <span class="text-white font-bold text-sm font-mono tracking-widest">{{ score }} PTS</span>
         </div>
-        <Link href="/dashboard" class="absolute top-6 right-6 z-30 p-2 bg-black/40 backdrop-blur-md rounded-full border border-white/10 text-white hover:bg-white/20 transition hover:scale-105 active:scale-95 shadow-lg">
+        <Link href="/dashboard" class="absolute top-4 right-4 z-30 p-2 bg-black/40 backdrop-blur-md rounded-full border border-white/10 text-white hover:bg-white/20 transition hover:scale-105 active:scale-95 shadow-lg">
             <User :size="24" stroke-width="2.5" />
         </Link>
 

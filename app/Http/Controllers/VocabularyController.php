@@ -2,84 +2,55 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Controllers\Controller;
 use App\Models\Word;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Http;
 use Inertia\Inertia;
-use App\Models\Vocabulary;
 
 class VocabularyController extends Controller
 {
     /**
-     * Guarda una palabra y busca su traducción automáticamente.
+     * Guarda la palabra usando los datos que la IA ya generó en el frontend.
      */
     public function store(Request $request)
     {
         $request->validate([
             'term' => 'required|string|max:255',
+            'translation' => 'required|string|max:255',
+            'phonetic' => 'nullable|string|max:255',
         ]);
 
         $term = strtolower(trim($request->term));
 
-        // 1. Buscamos si la palabra ya existe en el diccionario global
-        $word = Word::where('term', $term)->first();
+        // 🌟 1. Mantenemos firstOrCreate: Si la palabra ya existe globalmente, no la sobrescribe
+        $word = Word::firstOrCreate(
+            ['term' => $term],
+            [
+                'translation' => $request->translation,
+                'phonetic' => $request->phonetic ?? '',
+            ]
+        );
 
-        // 2. Si NO existe, la creamos Y buscamos su traducción
-        if (!$word) {
-            $translation = 'Traducción no encontrada'; // Valor por defecto
-
-            try {
-                // LLAMADA A LA API (MyMemory: Inglés -> Español)
-                $response = Http::get('https://api.mymemory.translated.net/get', [
-                    'q' => $term,
-                    'langpair' => 'en|es'
-                ]);
-
-                if ($response->successful()) {
-                    // Extraemos la traducción del JSON
-                    $translation = $response->json()['responseData']['translatedText'] ?? $translation;
-                }
-            } catch (\Exception $e) {
-                // Si falla internet, no pasa nada, guardamos sin traducción
-            }
-
-            // Guardamos en la BD Global
-            $word = Word::create([
-                'term' => $term,
-                'translation' => $translation,
-            ]);
-        }
-
-        // 3. Asignamos la palabra al usuario (Si no la tiene ya)
+        /** @var \App\Models\User $user */
         $user = Auth::user();
 
-        if (!$user->words()->where('word_id', $word->id)->exists()) {
-            $user->words()->attach($word->id, [
+        // 🌟 2. syncWithoutDetaching vincula la palabra al usuario solo si no la tiene ya
+        $user->words()->syncWithoutDetaching([
+            $word->id => [
                 'mastery_level' => 0,
-                'next_review_at' => now(),
-            ]);
-
-            return response()->json([
-                'status' => 'saved',
-                'message' => 'Guardado: ' . $word->translation, // Devolvemos la traducción para feedback
-                'word' => $word
-            ]);
-        }
-
-        return response()->json([
-            'status' => 'exists',
-            'message' => 'Ya la tienes: ' . $word->translation,
-            'word' => $word
+                'next_review_at' => now()->addDays(1),
+            ]
         ]);
+
+        return redirect()->back();
     }
 
     /**
-     * Muestra la colección del usuario.
+     * Muestra la colección del usuario con la fonética.
      */
     public function index()
     {
+        /** @var \App\Models\User $user */
         $words = Auth::user()->words()
             ->orderByPivot('created_at', 'desc')
             ->get()
@@ -87,9 +58,9 @@ class VocabularyController extends Controller
                 return [
                     'id' => $word->id,
                     'term' => $word->term,
-                    'translation' => $word->translation, // Ahora esto tendrá valor real
+                    'translation' => $word->translation,
+                    'phonetic' => $word->phonetic, 
                     'level' => $word->pivot->mastery_level,
-                    'review_count' => $word->pivot->review_count,
                     'added_at' => $word->pivot->created_at->diffForHumans(),
                 ];
             });
@@ -104,8 +75,6 @@ class VocabularyController extends Controller
      */
     public function practice()
     {
-        // Obtenemos hasta 10 palabras aleatorias del usuario
-        // Idealmente aquí filtraríamos por 'next_review_at', pero para el MVP usamos random
         $words = Auth::user()->words()
             ->inRandomOrder()
             ->limit(10)
@@ -115,6 +84,7 @@ class VocabularyController extends Controller
                     'id' => $word->id,
                     'term' => $word->term,
                     'translation' => $word->translation,
+                    'phonetic' => $word->phonetic,
                     'level' => $word->pivot->mastery_level,
                 ];
             });
@@ -125,18 +95,16 @@ class VocabularyController extends Controller
     }
 
     /**
-     * Elimina una palabra de tu coleccion.
+     * Elimina una palabra de la colección del usuario.
      */
-    public function destroy(Vocabulary $vocabulary)
+    public function destroy($id)
     {
-        // Verificamos que la palabra pertenezca al usuario que intenta borrarla
-        if ($vocabulary->user_id !== Auth::id()) {
-            abort(403);
-        }
+        /** @var \App\Models\User $user */
+        $user = Auth::user();
 
-        $vocabulary->delete();
+        // 🌟 3. detach() elimina la relación de la tabla intermedia de forma directa y segura
+        $user->words()->detach($id);
 
-        // Redirigimos de vuelta para que Inertia refresque la lista automáticamente
         return redirect()->back();
     }
 }

@@ -45,39 +45,47 @@ const handleWordClick = async (word, index) => {
             context: props.text 
         });
         
-        const translationData = translateResponse.data;
+        // Ponemos un {} de salvavidas por si la IA falla completamente
+        const translationData = translateResponse.data || {};
 
-        // PASO B: Guardar la palabra EN TU BASE DE DATOS para el repaso
-        // Le enviamos el término y la traducción que nos dio la IA
-        await axios.post('/vocabulary/save', { 
-            term: term,
-            translation: translationData.translation // Opcional: si tu BD guarda la traducción
-        });
-        
-        // 3. Mostramos la información en el Popover
+        // 🌟 1. MOSTRAMOS EL POPOVER AL INSTANTE (Súper rápido para el usuario)
         activeWordData.value = {
             term: term,
-            translation: translationData.translation,
-            phonetic: translationData.phonetic
+            // Si la IA no manda traducción, ponemos un mensaje claro en vez de "Cargando..."
+            translation: translationData.translation || 'Traducción no disponible',
+            phonetic: translationData.phonetic || '/.../'
         };
         
-        // Feedback visual de éxito
-        savedWordIndex.value = index;
-        activeWordIndex.value = index; // Abrimos el Popover
+        activeWordIndex.value = index; // Abre el Popover
+        loadingWordIndex.value = null; // Apaga el spinner de carga
 
-        setTimeout(() => { savedWordIndex.value = null; }, 1500);
+        // 🌟 2. PASO B: Guardamos en tu base de datos EN SEGUNDO PLANO
+        try {
+            await axios.post(route('vocabulary.store'), {
+                term: term,
+                translation: activeWordData.value.translation,
+                phonetic: activeWordData.value.phonetic === '/.../' ? '' : activeWordData.value.phonetic
+            });
+            
+            // Feedback visual del check verde
+            savedWordIndex.value = index;
+            setTimeout(() => { savedWordIndex.value = null; }, 1500);
+            
+        } catch (saveError) {
+            console.error("Error guardando en BD (pero la UI sigue funcionando):", saveError);
+            // Si esto falla (ej. error 422), el usuario no se da cuenta porque ya está leyendo su traducción
+        }
 
     } catch (error) {
-        console.error("Error en el proceso:", error);
+        console.error("Error al contactar a Gemini:", error);
         
-        // Si algo falla, al menos mostramos el error
+        // Si todo falla (ej. se va el internet), mostramos el error elegantemente
         activeWordData.value = {
             term: term,
-            translation: 'Error de red',
+            translation: 'Error de conexión',
             phonetic: '/.../'
         };
         activeWordIndex.value = index; 
-    } finally {
         loadingWordIndex.value = null;
     }
 };
@@ -128,7 +136,6 @@ const closePopover = () => {
                     </div>
                     
                 </div>
-                
                 
             </div>
         </transition>

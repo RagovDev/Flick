@@ -39,7 +39,7 @@ const submit = () => {
                     <div class="mb-8 border-b border-gray-700 pb-6">
                         <h3 class="text-xl font-bold text-white mb-2">Asistente de Inteligencia Artificial</h3>
                         <p class="text-gray-400 text-sm">
-                            Sube un clip de 30 segundos. Nuestro sistema extraerá los subtítulos automáticamente 
+                            Sube un clip de 60 segundos. Nuestro sistema extraerá los subtítulos automáticamente 
                             y Gemini IA generará un Quiz interactivo basado en el diálogo.
                         </p>
                     </div>

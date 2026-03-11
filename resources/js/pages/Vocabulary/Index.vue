@@ -3,6 +3,7 @@ import { Head, Link, router } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/layouts/AuthLayout.vue';
 import { Search, BookOpen, Brain, Star, Trash2 } from 'lucide-vue-next';
 import { ref, computed } from 'vue';
+import Toast from '@/components/Toast.vue'; 
 
 const props = defineProps({
     words: Array
@@ -10,7 +11,42 @@ const props = defineProps({
 
 const search = ref('');
 
-// Filtrar palabras en tiempo real
+// --- LÓGICA DEL TOAST ---
+const showToast = ref(false);
+const toastMessage = ref('');
+
+const triggerToast = (msg) => {
+    toastMessage.value = msg;
+    showToast.value = true;
+    setTimeout(() => {
+        showToast.value = false;
+    }, 3000);
+};
+
+// --- LÓGICA DEL MODAL DE ELIMINACIÓN ---
+const wordToDelete = ref(null);
+
+const confirmDelete = (word) => {
+    wordToDelete.value = word; // Abre el modal con la palabra seleccionada
+};
+
+const cancelDelete = () => {
+    wordToDelete.value = null; // Cierra el modal
+};
+
+const executeDelete = () => {
+    if (!wordToDelete.value) return;
+
+    router.delete(route('vocabulary.destroy', wordToDelete.value.id), {
+        preserveScroll: true, // Evita que la página salte
+        onSuccess: () => {
+            wordToDelete.value = null; // Cerramos el modal
+            triggerToast('Palabra eliminada con éxito'); // Mostramos el Toast
+        }
+    });
+};
+
+// --- FILTROS Y ESTILOS ---
 const filteredWords = computed(() => {
     return props.words.filter(word => 
         word.term.toLowerCase().includes(search.value.toLowerCase()) ||
@@ -18,20 +54,11 @@ const filteredWords = computed(() => {
     );
 });
 
-// Función para determinar el color según el nivel de maestría (Gamificación)
+// Función para determinar el color según el nivel de maestría
 const getLevelColor = (level) => {
     if (level === 0) return 'bg-gray-600 shadow-[0_0_10px_rgba(75,85,99,0.5)]'; 
     if (level < 3) return 'bg-yellow-500 shadow-[0_0_10px_rgba(234,179,8,0.4)]'; 
     return 'bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.4)]'; 
-};
-
-// Funcion para borrar una palabra de la coleccion
-const deleteWord = (id) => {
-    if (confirm('¿Estás seguro de que quieres eliminar esta palabra de tu vocabulario?')) {
-        router.delete(route('vocabulary.destroy', id), {
-            preserveScroll: true, // Para que la página no salte al inicio al borrar
-        });
-    }
 };
 </script>
 
@@ -43,7 +70,7 @@ const deleteWord = (id) => {
             <h2 class="font-bold text-xl text-gray-200 leading-tight">Mi Colección</h2>
         </template>
 
-        <div class="py-12">
+        <div class="py-12 relative">
             <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
                 
                 <div class="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
@@ -83,30 +110,36 @@ const deleteWord = (id) => {
                     </div>
                     <h3 class="text-white font-bold text-lg">No encontramos palabras</h3>
                     <p class="text-gray-400 text-sm mt-2">Ve a ver videos y toca los subtítulos para guardar palabras.</p>
-                    <Link :href="route('flick.index')" class="mt-4 inline-block text-yellow-400 hover:underline font-bold">
+                    <Link :href="route('dashboard')" class="mt-4 inline-block text-yellow-400 hover:underline font-bold">
                         Ir a Aprender &rarr;
                     </Link>
                 </div>
 
-                <div v-else> <transition-group 
-                    tag="div" 
-                    class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6"
-                    enter-active-class="transition duration-300 ease-out"
-                    enter-from-class="transform scale-95 opacity-0"
-                    leave-active-class="transition duration-300 ease-in absolute" 
-                    leave-to-class="transform scale-95 opacity-0"
-                >
-                    <div 
-                        v-for="word in filteredWords" 
-                        :key="word.id"
-                        class="bg-gray-800 p-5 rounded-xl border border-gray-700 hover:border-yellow-500/50 transition group relative overflow-hidden"
+                <div v-else> 
+                    <transition-group 
+                        tag="div" 
+                        class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6"
+                        enter-active-class="transition duration-300 ease-out"
+                        enter-from-class="transform scale-95 opacity-0"
+                        leave-active-class="transition duration-300 ease-in absolute" 
+                        leave-to-class="transform scale-95 opacity-0"
                     >
+                        <div 
+                            v-for="word in filteredWords" 
+                            :key="word.id"
+                            class="bg-gray-800 p-5 rounded-xl border border-gray-700 hover:border-yellow-500/50 transition group relative overflow-hidden"
+                        >
                             <div class="absolute left-0 top-0 bottom-0 w-1" :class="getLevelColor(word.level)"></div>
 
-                            <div class="flex justify-between items-start mb-2">
-                                <h3 class="text-xl font-bold text-white capitalize">{{ word.term }}</h3>
+                            <div class="flex justify-between items-start mb-1">
+                                <div>
+                                    <h3 class="text-xl font-bold text-white capitalize">{{ word.term }}</h3>
+                                    <p v-if="word.phonetic" class="text-gray-400 text-[11px] font-mono tracking-widest mt-0.5">
+                                        {{ word.phonetic }} 🔊
+                                    </p>
+                                </div>
                                 <button 
-                                    @click="deleteWord(word.id)" 
+                                    @click="confirmDelete(word)" 
                                     class="text-gray-500 hover:text-red-500 transition-colors p-1"
                                     title="Eliminar palabra"
                                 >
@@ -114,7 +147,7 @@ const deleteWord = (id) => {
                                 </button>
                             </div>
 
-                            <p class="text-gray-400 text-sm mb-4 italic">{{ word.translation || 'Sin traducción' }}</p>
+                            <p class="text-yellow-400 font-medium text-sm mt-2 mb-4">{{ word.translation || 'Sin traducción' }}</p>
 
                             <div class="flex items-center justify-between text-xs text-gray-500 mt-4 border-t border-gray-700 pt-3">
                                 <span class="flex items-center gap-1">
@@ -129,5 +162,37 @@ const deleteWord = (id) => {
 
             </div>
         </div>
+
+        <transition 
+            enter-active-class="transition ease-out duration-200"
+            enter-from-class="opacity-0"
+            enter-to-class="opacity-100"
+            leave-active-class="transition ease-in duration-150"
+            leave-from-class="opacity-100"
+            leave-to-class="opacity-0"
+        >
+            <div v-if="wordToDelete" class="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+                <div class="bg-gray-800 border border-gray-700 rounded-2xl p-6 max-w-sm w-full shadow-2xl transform transition-all text-center">
+                    <div class="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center mx-auto mb-4">
+                        <Trash2 class="w-6 h-6 text-red-500" />
+                    </div>
+                    <h3 class="text-lg font-bold text-white mb-1">¿Eliminar palabra?</h3>
+                    <p class="text-gray-400 text-sm mb-6">
+                        "<span class="font-bold text-white">{{ wordToDelete.term }}</span>" desaparecerá de tu colección.
+                    </p>
+                    <div class="flex gap-3 justify-center">
+                        <button @click="cancelDelete" class="px-4 py-2 rounded-xl text-sm font-medium text-gray-300 bg-gray-700 hover:bg-gray-600 transition">
+                            Cancelar
+                        </button>
+                        <button @click="executeDelete" class="px-4 py-2 rounded-xl text-sm font-bold text-gray-900 bg-yellow-400 hover:bg-yellow-500 transition shadow-[0_0_15px_rgba(250,204,21,0.3)]">
+                            Sí, eliminar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </transition>
+
+        <Toast :show="showToast" :message="toastMessage" />
+
     </AuthenticatedLayout>
 </template>
