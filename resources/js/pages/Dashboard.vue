@@ -1,7 +1,7 @@
 <script setup>
+import { computed } from 'vue'; // 🌟 Agregamos computed
 import { Head, Link } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/layouts/AuthLayout.vue'; 
-// AGREGAMOS NUEVOS ICONOS (Film, Music, Cpu, Globe...)
 import { Trophy, Video, Star, PlayCircle, Zap, Play, CheckCircle, XCircle, Clock, Film, Music, Cpu, Globe, Rocket } from 'lucide-vue-next';
 import { route } from 'ziggy-js';
 
@@ -9,6 +9,12 @@ const props = defineProps({
     auth: Object,
     stats: Object,
     history: Array
+});
+
+// 🌟 UX PRO: Extraemos solo el primer nombre para un saludo más amigable y que no rompa el diseño
+const firstName = computed(() => {
+    if (!props.auth.user.name) return '';
+    return props.auth.user.name.split(' ')[0];
 });
 
 const getStatusColor = (score) => {
@@ -23,8 +29,6 @@ const getStatusIcon = (score) => {
     return Clock;
 };
 
-// --- DATA: CANALES TEMÁTICOS ---
-// Estos son los "Moods". Al hacer clic, te llevan al player filtrado.
 const channels = [
     { id: 'movies', name: 'Cine & TV', icon: Film, color: 'from-red-500 to-orange-500', desc: 'Frases icónicas' },
     { id: 'music', name: 'Música', icon: Music, color: 'from-pink-500 to-rose-500', desc: 'Letras y ritmo' },
@@ -44,7 +48,7 @@ const channels = [
                         Centro de Mando
                         <span class="text-xs bg-yellow-500 text-black px-2 py-0.5 rounded font-bold uppercase tracking-wider">BETA</span>
                     </h2>
-                    <p class="text-gray-400 text-sm mt-1">Bienvenido de nuevo, {{ auth.user.name }}</p>
+                    <p class="text-gray-400 text-sm mt-1">Bienvenido de nuevo, {{ firstName }}</p>
                 </div>
                 
                 <Link :href="route('flick.index')" class="w-full sm:w-auto bg-yellow-400 hover:bg-yellow-300 text-black font-black py-3 px-6 rounded-xl flex items-center justify-center gap-2 transition hover:scale-105 shadow-[0_0_20px_rgba(250,204,21,0.3)] group">
@@ -102,7 +106,8 @@ const channels = [
                         </div>
                     </div>
 
-                    <div class="bg-gray-800/50 p-6 rounded-2xl border border-gray-700/50 flex items-center gap-4 hover:bg-gray-800 hover:border-purple-500/30 transition duration-300 group">
+                    <div class="bg-gray-800/50 p-6 rounded-2xl border border-gray-700/50 flex items-center gap-4 hover:bg-gray-800 hover:border-purple-500/30 transition duration-300 group relative overflow-hidden opacity-70">
+                        <div class="absolute -right-8 top-3 bg-yellow-500 text-black text-[9px] font-black uppercase tracking-widest py-0.5 px-8 rotate-45 shadow-lg">Pronto</div>
                         <div class="p-3 bg-purple-500/10 rounded-xl text-purple-400 group-hover:scale-110 transition shadow-[0_0_10px_rgba(168,85,247,0.2)]">
                             <Star size="28" stroke-width="2" />
                         </div>
@@ -112,7 +117,8 @@ const channels = [
                         </div>
                     </div>
 
-                    <div class="bg-gray-800/50 p-6 rounded-2xl border border-gray-700/50 flex items-center gap-4 hover:bg-gray-800 hover:border-green-500/30 transition duration-300 group">
+                    <div class="bg-gray-800/50 p-6 rounded-2xl border border-gray-700/50 flex items-center gap-4 hover:bg-gray-800 hover:border-green-500/30 transition duration-300 group relative overflow-hidden opacity-70">
+                        <div class="absolute -right-8 top-3 bg-yellow-500 text-black text-[9px] font-black uppercase tracking-widest py-0.5 px-8 rotate-45 shadow-lg">Pronto</div>
                         <div class="p-3 bg-green-500/10 rounded-xl text-green-400 group-hover:scale-110 transition shadow-[0_0_10px_rgba(34,197,94,0.2)]">
                             <Zap size="28" stroke-width="2" />
                         </div>
@@ -139,7 +145,6 @@ const channels = [
                             class="group relative overflow-hidden rounded-2xl h-32 cursor-pointer transition-all hover:scale-[1.02] hover:shadow-xl"
                         >
                             <div class="absolute inset-0 bg-gradient-to-br opacity-80 group-hover:opacity-100 transition duration-300" :class="channel.color"></div>
-                            
                             <div class="absolute inset-0 bg-black/10 group-hover:bg-transparent transition"></div>
 
                             <div class="absolute inset-0 p-4 flex flex-col justify-between">

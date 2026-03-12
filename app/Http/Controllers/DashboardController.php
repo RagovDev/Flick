@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Controllers\Controller;
 use App\Models\UserProgress;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -20,28 +19,29 @@ class DashboardController extends Controller
             ->where('watched', true)
             ->count();
 
-        // 2. Calcular Nivel (Ejemplo: Cada 100 puntos subes de nivel)
+        // 2. Calcular Nivel
         $level = floor($user->score / 100) + 1;
-        
-        // Puntos para el siguiente nivel
         $nextLevelPoints = $level * 100;
         $progressToNext = $user->score % 100;
 
-        // 3. Obtener historial reciente
-        $history = UserProgress::with('clip') // Cargamos la relación 'clip' para acceder a sus datos
+        // 3. Obtener historial reciente (🌟 Optimizado)
+        $history = UserProgress::with('clip') 
             ->where('user_id', $user->id)
             ->where('watched', true)
             ->latest('viewed_at')
             ->take(5)
             ->get()
             ->map(function ($progress) {
+                // 🌟 PROTECCIÓN DE RENDIMIENTO: Evitamos que Clip intente calcular likes_count
+                $clip = $progress->clip->setAppends(['thumbnail_url']); 
+
                 return [
                     'id' => $progress->id, 
-                    'clip_id' => $progress->clip->id, 
-                    'title' => $progress->clip->title, 
-                    'thumbnail_url' => $progress->clip->thumbnail_url, // CORRECTO: Llamamos al Accessor del Modelo.
-                    'score' => $progress->answered_correctly ? 'Acertado' : 'Fallado', // Ajusté 'Visto' a 'Fallado' si prefieres esa lógica, o déjalo como 'Visto'
-                    'date_human' => \Carbon\Carbon::parse($progress->viewed_at)->diffForHumans(), // Usamos Carbon::parse() para convertir el texto a fecha real
+                    'clip_id' => $clip->id, 
+                    'title' => $clip->title, 
+                    'thumbnail_url' => $clip->thumbnail_url, 
+                    'score' => $progress->answered_correctly ? 'Acertado' : 'Fallado',
+                    'date_human' => Carbon::parse($progress->viewed_at)->diffForHumans(), 
                 ];
             });
 

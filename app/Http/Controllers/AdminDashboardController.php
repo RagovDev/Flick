@@ -26,7 +26,8 @@ class AdminDashboardController extends Controller
             ->get();
 
         // 3. Últimos videos subidos (para tener acceso rápido)
-        $recentClips = Clip::orderBy('created_at', 'desc')
+        // 🌟 Tip Pro: latest() es más limpio y legible que orderBy('created_at', 'desc')
+        $recentClips = Clip::latest()
             ->take(5)
             ->get();
 

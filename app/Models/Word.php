@@ -17,7 +17,8 @@ class Word extends Model
 
     public function users()
     {
-        return $this->belongsToMany(User::class)
-            ->withPivot(['mastery_level', 'next_review_at']);
+        return $this->belongsToMany(User::class, 'word_user')
+            ->withPivot(['mastery_level', 'next_review_at', 'review_count'])
+            ->withTimestamps(); 
     }
 }

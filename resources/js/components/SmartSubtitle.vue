@@ -98,6 +98,12 @@ const closePopover = () => {
 
 <template>
     <div class="text-center leading-relaxed select-none relative">
+
+        <div 
+            v-if="activeWordIndex !== null" 
+            @click.stop="closePopover" 
+            class="fixed inset-0 z-40"
+        ></div>
         
         <transition 
             enter-active-class="transition ease-out duration-200"

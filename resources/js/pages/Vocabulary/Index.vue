@@ -25,23 +25,31 @@ const triggerToast = (msg) => {
 
 // --- LÓGICA DEL MODAL DE ELIMINACIÓN ---
 const wordToDelete = ref(null);
+const isDeleting = ref(false); // 🌟 NUEVO: Estado para bloquear el botón
 
 const confirmDelete = (word) => {
-    wordToDelete.value = word; // Abre el modal con la palabra seleccionada
+    wordToDelete.value = word;
 };
 
 const cancelDelete = () => {
-    wordToDelete.value = null; // Cierra el modal
+    if (isDeleting.value) return; // Bloquea cancelar si ya está borrando
+    wordToDelete.value = null;
 };
 
 const executeDelete = () => {
-    if (!wordToDelete.value) return;
+    if (!wordToDelete.value || isDeleting.value) return;
+
+    isDeleting.value = true; // 🌟 Activamos el spinner
 
     router.delete(route('vocabulary.destroy', wordToDelete.value.id), {
-        preserveScroll: true, // Evita que la página salte
+        preserveScroll: true, 
+        preserveState: true, // 🌟 Evita que el buscador se borre al recargar la lista
         onSuccess: () => {
-            wordToDelete.value = null; // Cerramos el modal
-            triggerToast('Palabra eliminada con éxito'); // Mostramos el Toast
+            wordToDelete.value = null; 
+            triggerToast('Palabra eliminada con éxito'); 
+        },
+        onFinish: () => {
+            isDeleting.value = false; // 🌟 Apagamos el spinner pase lo que pase
         }
     });
 };
@@ -54,7 +62,6 @@ const filteredWords = computed(() => {
     );
 });
 
-// Función para determinar el color según el nivel de maestría
 const getLevelColor = (level) => {
     if (level === 0) return 'bg-gray-600 shadow-[0_0_10px_rgba(75,85,99,0.5)]'; 
     if (level < 3) return 'bg-yellow-500 shadow-[0_0_10px_rgba(234,179,8,0.4)]'; 
@@ -104,15 +111,26 @@ const getLevelColor = (level) => {
                     </div>
                 </div>
 
-                <div v-if="filteredWords.length === 0" class="text-center py-20 bg-gray-800 rounded-2xl border border-dashed border-gray-700">
+                <div v-if="words.length === 0" class="text-center py-20 bg-gray-800 rounded-2xl border border-dashed border-gray-700">
+                    <div class="bg-gray-700 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <BookOpen class="text-gray-400" size="32" />
+                    </div>
+                    <h3 class="text-white font-bold text-lg">Tu colección está vacía</h3>
+                    <p class="text-gray-400 text-sm mt-2">Ve a ver videos y toca los subtítulos para guardar palabras.</p>
+                    <Link :href="route('flick.index')" class="mt-4 inline-block text-yellow-400 hover:underline font-bold">
+                        Ir a Aprender &rarr;
+                    </Link>
+                </div>
+
+                <div v-else-if="filteredWords.length === 0" class="text-center py-20 bg-gray-800 rounded-2xl border border-dashed border-gray-700">
                     <div class="bg-gray-700 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
                         <Search class="text-gray-400" size="32" />
                     </div>
-                    <h3 class="text-white font-bold text-lg">No encontramos palabras</h3>
-                    <p class="text-gray-400 text-sm mt-2">Ve a ver videos y toca los subtítulos para guardar palabras.</p>
-                    <Link :href="route('dashboard')" class="mt-4 inline-block text-yellow-400 hover:underline font-bold">
-                        Ir a Aprender &rarr;
-                    </Link>
+                    <h3 class="text-white font-bold text-lg">No encontramos resultados</h3>
+                    <p class="text-gray-400 text-sm mt-2">No tienes palabras que coincidan con "<span class="text-white">{{ search }}</span>".</p>
+                    <button @click="search = ''" class="mt-4 text-yellow-400 hover:underline font-bold">
+                        Limpiar búsqueda
+                    </button>
                 </div>
 
                 <div v-else> 
@@ -181,11 +199,21 @@ const getLevelColor = (level) => {
                         "<span class="font-bold text-white">{{ wordToDelete.term }}</span>" desaparecerá de tu colección.
                     </p>
                     <div class="flex gap-3 justify-center">
-                        <button @click="cancelDelete" class="px-4 py-2 rounded-xl text-sm font-medium text-gray-300 bg-gray-700 hover:bg-gray-600 transition">
+                        <button 
+                            @click="cancelDelete" 
+                            :disabled="isDeleting"
+                            class="px-4 py-2 rounded-xl text-sm font-medium text-gray-300 bg-gray-700 hover:bg-gray-600 disabled:opacity-50 transition"
+                        >
                             Cancelar
                         </button>
-                        <button @click="executeDelete" class="px-4 py-2 rounded-xl text-sm font-bold text-gray-900 bg-yellow-400 hover:bg-yellow-500 transition shadow-[0_0_15px_rgba(250,204,21,0.3)]">
-                            Sí, eliminar
+                        <button 
+                            @click="executeDelete" 
+                            :disabled="isDeleting"
+                            class="px-4 py-2 rounded-xl text-sm font-bold transition flex items-center justify-center gap-2 min-w-[120px]"
+                            :class="isDeleting ? 'bg-yellow-500/50 text-gray-800 cursor-not-allowed' : 'bg-yellow-400 hover:bg-yellow-500 text-gray-900 shadow-[0_0_15px_rgba(250,204,21,0.3)]'"
+                        >
+                            <span v-if="isDeleting" class="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin"></span>
+                            {{ isDeleting ? 'Borrando...' : 'Sí, eliminar' }}
                         </button>
                     </div>
                 </div>

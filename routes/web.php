@@ -36,6 +36,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::controller(AdminClipController::class)->prefix('clips')->name('clips.')->group(function () {
             Route::get('/upload', 'create')->name('create');
             Route::post('/upload', 'store')->name('store');
+            Route::delete('/{id}', 'destroy')->name('destroy');
+            Route::get('/', 'index')->name('index');
+            Route::put('/{id}', 'update')->name('update');
         });
     });
 

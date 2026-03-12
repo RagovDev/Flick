@@ -1,6 +1,6 @@
 <script setup>
 import { Link } from '@inertiajs/vue3';
-import { Play, Brain, Subtitles, ArrowRight, Zap, Heart, Volume2 } from 'lucide-vue-next';
+import { Play, Brain, Subtitles, ArrowRight, Zap, Heart, Volume2, Smartphone } from 'lucide-vue-next';
 import { ref, onMounted } from 'vue';
 
 defineProps({
@@ -77,14 +77,14 @@ onMounted(() => {
 
             <div class="flex-1 text-center lg:text-left z-10">
                 <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-yellow-400/10 border border-yellow-400/20 text-yellow-400 text-xs font-bold tracking-wide uppercase mb-6">
-                    <Zap size="14" class="fill-yellow-400" /> Método con IA 2026
+                    <Zap size="14" class="fill-yellow-400" /> Hackea tu tiempo libre
                 </div>
                 <h1 class="text-5xl sm:text-6xl lg:text-7xl font-extrabold tracking-tight mb-6 leading-[1.1]">
-                    Aprende inglés <br>
-                    <span class="text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 to-yellow-600">viendo películas.</span>
+                    El único scroll infinito <br>
+                    <span class="text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 to-yellow-600">que te hace bilingüe.</span>
                 </h1>
                 <p class="text-lg sm:text-xl text-gray-400 mb-10 max-w-2xl mx-auto lg:mx-0 leading-relaxed">
-                    Olvídate de los libros aburridos. Mejora tu vocabulario y comprensión auditiva con clips reales de cine y quizzes generados por Inteligencia Artificial.
+                    Cambia la culpa de perder el tiempo en redes sociales por la satisfacción de aprender. Un feed de videos cortos con escenas icónicas de cine, traducciones al toque y quizzes generados por Inteligencia Artificial.
                 </p>
                 
                 <div class="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4">
@@ -96,7 +96,7 @@ onMounted(() => {
                 <div class="mt-12 flex items-center justify-center lg:justify-start gap-8 border-t border-gray-800 pt-8">
                     <div>
                         <div class="text-2xl font-black text-white">+100</div>
-                        <div class="text-xs text-gray-500 font-bold uppercase tracking-wider">Películas</div>
+                        <div class="text-xs text-gray-500 font-bold uppercase tracking-wider">Videos Cortos</div>
                     </div>
                     <div class="w-px h-8 bg-gray-800"></div>
                     <div>
@@ -105,8 +105,8 @@ onMounted(() => {
                     </div>
                     <div class="w-px h-8 bg-gray-800"></div>
                     <div>
-                        <div class="text-2xl font-black text-white">100%</div>
-                        <div class="text-xs text-gray-500 font-bold uppercase tracking-wider">Práctico</div>
+                        <div class="text-2xl font-black text-white">0%</div>
+                        <div class="text-xs text-gray-500 font-bold uppercase tracking-wider">Culpa</div>
                     </div>
                 </div>
             </div>
@@ -168,7 +168,7 @@ onMounted(() => {
                             <svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
                                 <path d="M12 19V5M5 12l7-7 7 7"/>
                             </svg>
-                            <span class="text-[9px] font-black uppercase tracking-widest">Feed IA</span>
+                            <span class="text-[9px] font-black uppercase tracking-widest">Desliza</span>
                         </div>
                     </div>
                 </div>
@@ -178,17 +178,17 @@ onMounted(() => {
         <section class="bg-gray-900 border-t border-gray-800 py-20 px-6">
             <div class="max-w-7xl mx-auto">
                 <div class="text-center mb-16">
-                    <h2 class="text-3xl font-bold mb-4">Aprende sin darte cuenta</h2>
-                    <p class="text-gray-400 max-w-2xl mx-auto">Un flujo diseñado para mantenerte inmerso en la historia mientras tu cerebro absorbe nuevo vocabulario.</p>
+                    <h2 class="text-3xl font-bold mb-4">La misma experiencia, pero productiva</h2>
+                    <p class="text-gray-400 max-w-2xl mx-auto">Diseñamos una interfaz idéntica a tus apps favoritas para que el hábito fluya de manera natural.</p>
                 </div>
 
                 <div class="grid md:grid-cols-3 gap-8">
                     <div class="bg-gray-800/50 p-8 rounded-2xl border border-gray-700 hover:border-yellow-500/50 transition duration-300">
                         <div class="w-12 h-12 bg-blue-500/20 text-blue-400 rounded-xl flex items-center justify-center mb-6">
-                            <Play size="24" />
+                            <Smartphone size="24" />
                         </div>
-                        <h3 class="text-xl font-bold mb-3">1. Mira y Escucha</h3>
-                        <p class="text-gray-400 text-sm leading-relaxed">Disfruta de escenas icónicas de películas y series con subtítulos en inglés. Entrena tu oído con acentos reales y velocidad nativa.</p>
+                        <h3 class="text-xl font-bold mb-3">1. Desliza y Descubre</h3>
+                        <p class="text-gray-400 text-sm leading-relaxed">Navega por un feed infinito de escenas verticales. Entrena tu oído con acentos reales, jerga cotidiana y la velocidad de los hablantes nativos.</p>
                     </div>
 
                     <div class="bg-gray-800/50 p-8 rounded-2xl border border-gray-700 hover:border-yellow-500/50 transition duration-300">
@@ -196,7 +196,7 @@ onMounted(() => {
                             <Subtitles size="24" />
                         </div>
                         <h3 class="text-xl font-bold mb-3">2. Toca y Traduce</h3>
-                        <p class="text-gray-400 text-sm leading-relaxed">¿No entiendes una palabra? Solo tócala. Nuestra IA pausará el video y te dará la traducción exacta basada en el contexto de la escena.</p>
+                        <p class="text-gray-400 text-sm leading-relaxed">¿No entiendes una palabra? Solo tócala. Nuestra IA pausará el video al instante y te dará la traducción exacta, su fonética y la guardará para ti.</p>
                     </div>
 
                     <div class="bg-gray-800/50 p-8 rounded-2xl border border-gray-700 hover:border-yellow-500/50 transition duration-300">
@@ -204,7 +204,7 @@ onMounted(() => {
                             <Brain size="24" />
                         </div>
                         <h3 class="text-xl font-bold mb-3">3. Resuelve y Gana</h3>
-                        <p class="text-gray-400 text-sm leading-relaxed">Demuestra lo que aprendiste respondiendo un Quiz generado por inteligencia artificial sobre el video. Gana puntos y sube de nivel.</p>
+                        <p class="text-gray-400 text-sm leading-relaxed">Al final de cada video, pondremos a prueba tu comprensión con un rápido Quiz generado por Inteligencia artificial. Gana XP y compite contigo mismo.</p>
                     </div>
                 </div>
             </div>

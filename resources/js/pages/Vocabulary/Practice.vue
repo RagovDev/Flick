@@ -20,7 +20,8 @@ const currentWord = computed(() => props.words[currentIndex.value]);
 // Progreso (Barra superior)
 const progress = computed(() => {
     if (props.words.length === 0) return 0;
-    return ((currentIndex.value) / props.words.length) * 100;
+    // 🌟 MEJORA UX: Le sumamos 1 para que la barra no empiece vacía en la primera tarjeta
+    return ((currentIndex.value + 1) / props.words.length) * 100;
 });
 
 // Acciones
@@ -31,15 +32,18 @@ const flipCard = () => {
 const handleResult = (success) => {
     if (success) score.value++;
     
-    // Siguiente tarjeta
+    // 🌟 1. GIRAR INMEDIATAMENTE: Ocultamos las respuestas y empezamos el giro a la inversa
+    isFlipped.value = false;
+
+    // 🌟 2. CAMBIAR EN SECRETO: Esperamos 250ms a que la tarjeta esté "de canto" 
+    // (girada a 90 grados, invisible) para cambiar el texto sin que el usuario se dé cuenta.
     setTimeout(() => {
         if (currentIndex.value < props.words.length - 1) {
-            isFlipped.value = false;
             currentIndex.value++;
         } else {
             completed.value = true;
         }
-    }, 300); // Pequeña espera para animación
+    }, 250); // Exactamente la mitad de la duración de tu animación (500ms)
 };
 </script>
 

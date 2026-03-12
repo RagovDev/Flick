@@ -22,7 +22,9 @@ class GoogleAuthController extends Controller
             $googleUser = Socialite::driver('google')->user();
 
             // Buscamos si el usuario ya existe por su email o google_id
-            $user = User::where('email', $googleUser->email)->orWhere('google_id', $googleUser->id)->first();
+            $user = User::where('email', $googleUser->email)
+                        ->orWhere('google_id', $googleUser->id)
+                        ->first();
 
             if ($user) {
                 // Si existe pero no tiene el google_id (se registró normal antes), se lo actualizamos
@@ -36,12 +38,12 @@ class GoogleAuthController extends Controller
                     'password' => bcrypt(Str::random(16)) // Clave aleatoria por seguridad
                 ]);
                 
-                // 🌟 LE ASIGNAMOS EL ROL BÁSICO AUTOMÁTICAMENTE 🌟
+                // LE ASIGNAMOS EL ROL BÁSICO AUTOMÁTICAMENTE
                 $user->assignRole('user');
             }
 
-            // Lo logueamos
-            Auth::login($user);
+            // 🌟 CAMBIO PRO: Agregamos "true" para mantener la sesión iniciada
+            Auth::login($user, true);
 
             // Lo mandamos al feed de videos
             return redirect()->route('dashboard');

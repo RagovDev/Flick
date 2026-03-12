@@ -3,7 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo; // <--- Importante
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class UserProgress extends Model
 {
@@ -13,17 +13,21 @@ class UserProgress extends Model
 
     protected $fillable = ['user_id', 'clip_id', 'watched', 'answered_correctly', 'viewed_at'];
 
-    /**
-     * Relación: Un registro de progreso pertenece a un Video (Clip).
-     */
+    // 🌟 Magia Pura: Convierte los 1/0 en booleanos y el texto de la fecha en un objeto Carbon
+    protected function casts(): array
+    {
+        return [
+            'watched' => 'boolean',
+            'answered_correctly' => 'boolean',
+            'viewed_at' => 'datetime',
+        ];
+    }
+
     public function clip(): BelongsTo
     {
         return $this->belongsTo(Clip::class);
     }
 
-    /**
-     * (Opcional) Relación: Un registro de progreso pertenece a un Usuario.
-     */
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);

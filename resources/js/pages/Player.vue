@@ -14,7 +14,10 @@ const props = defineProps({
 });
 
 // --- ESTADO ---
-const clips = ref([props.initialClip]); 
+const clips = ref([{
+    ...props.initialClip,
+    queue_id: Date.now() + Math.random() 
+}]); 
 const currentIndex = ref(0);
 const transitionName = ref('slide-up');
 const isScrolling = ref(false);
@@ -27,33 +30,72 @@ const isLoadingNext = ref(false);
 const isShaking = ref(false);
 const showSuccessToast = ref(false);
 
-// Sonidos
-const soundCorrect = new Audio('audio/quiz/correct.mp3'); 
-const soundWrong = new Audio('audio/quiz/wrong.mp3'); 
+const soundCorrect = new Audio('/audio/quiz/correct.mp3'); 
+const soundWrong = new Audio('/audio/quiz/wrong.mp3'); 
 soundCorrect.volume = 0.5; soundWrong.volume = 0.6;
 
 
-// --- NAVEGACIÓN ---
+// 🌟 1. EL SECRETO: BUFFER AGRESIVO
+// Esta función se asegura de que SIEMPRE haya al menos 2 videos listos por delante
+const maintainBuffer = async () => {
+    if (props.isPracticeMode) return;
+    
+    // Si nos quedan menos de 2 videos por delante en la cola, pedimos más
+    while ((clips.value.length - 1 - currentIndex.value) < 2) {
+        if (isLoadingNext.value) break; // Evita cruces de peticiones
+        await fetchNextClip();
+    }
+};
 
-const goToNextVideo = async () => {
+const fetchNextClip = async () => {
+    isLoadingNext.value = true;
+    try {
+        const response = await axios.get('/flick/next', {
+            params: { category: props.activeCategory } 
+        });
+        
+        if (response.status !== 204 && response.data) {
+            // 🌟 QUITAMOS EL "if (!exists)"
+            // Le pegamos un "Ticket de fila" (queue_id) único
+            const newClip = {
+                ...response.data,
+                queue_id: Date.now() + Math.random()
+            };
+            
+            // Lo metemos a la fila sin importar si ya lo vimos
+            clips.value.push(newClip);
+        }
+    } catch (error) {
+        console.error("Error fetching next:", error);
+    } finally {
+        isLoadingNext.value = false;
+    }
+};
+
+// --- NAVEGACIÓN INSTANTÁNEA ---
+const goToNextVideo = () => {
     if (isScrolling.value) return;
-    isScrolling.value = true;
-    transitionName.value = 'slide-up';
 
     if (currentIndex.value < clips.value.length - 1) {
+        // 🌟 TIKTOK STYLE: Si ya hay video en cola, deslizamos de inmediato. ¡Cero esperas!
+        isScrolling.value = true;
+        transitionName.value = 'slide-up';
         currentIndex.value++;
         showQuiz.value = false;
+        
         setTimeout(() => isScrolling.value = false, 500);
         
-        // ESTRATEGIA DE BUFFER:
-        if (currentIndex.value === clips.value.length - 1) {
-            fetchNextClip();
-        }
+        // Rellenamos el buffer en segundo plano sin molestar al usuario
+        maintainBuffer();
+        
     } else {
-        await fetchNextClip(); 
-        if (currentIndex.value < clips.value.length - 1) {
-             currentIndex.value++;
-        }
+        // Solo entramos aquí si el internet del usuario es MUY lento y se acabó el buffer
+        isLoadingNext.value = true;
+        maintainBuffer().then(() => {
+            if (currentIndex.value < clips.value.length - 1) {
+                goToNextVideo(); // Reintenta deslizar automáticamente
+            }
+        });
     }
 };
 
@@ -64,35 +106,6 @@ const goToPrevVideo = () => {
     currentIndex.value--;
     showQuiz.value = false;
     setTimeout(() => isScrolling.value = false, 500);
-};
-
-const fetchNextClip = async () => {
-    if (props.isPracticeMode) return;
-    isLoadingNext.value = true;
-
-    try {
-         const response = await axios.get('/flick/next', {
-            params: { category: props.activeCategory } 
-        });
-        if (response.status === 204 || !response.data) {
-             // Fin del feed
-        } else {
-            // Verificamos que no esté duplicado
-            const exists = clips.value.some(c => c.id === response.data.id);
-            if (!exists) {
-                // *** CORRECCIÓN CRÍTICA AQUÍ ***
-                // Antes: const newClip = { ...response.data, completed: false }; <--- ERROR
-                // Ahora: Confiamos en el backend. Si es repetido, vendrá con completed: true.
-                const newClip = response.data; 
-                clips.value.push(newClip);
-            }
-        }
-    } catch (error) {
-        console.error("Error fetching next:", error);
-    } finally {
-        isLoadingNext.value = false;
-        setTimeout(() => isScrolling.value = false, 500);
-    }
 };
 
 // --- GESTOS ---
@@ -112,9 +125,7 @@ const handleTouchEnd = (e) => {
 };
 
 // --- QUIZ & PUNTUACIÓN ---
-
 const openQuiz = () => {
-    // Si ya está completado, no abrimos el quiz
     if (clips.value[currentIndex.value].completed) return;
     showQuiz.value = true;
 };
@@ -125,7 +136,6 @@ const closeQuiz = () => {
 };
 
 const handleAnswer = async (option) => {
-    // 1. MODO REPASO
     if (props.isPracticeMode) {
         if (option.is_correct) {
             soundCorrect.currentTime = 0; soundCorrect.play().catch(e => null);
@@ -139,7 +149,6 @@ const handleAnswer = async (option) => {
         return; 
     }
 
-    // 2. MODO JUEGO
     if (clips.value[currentIndex.value].completed) return; 
 
     try {
@@ -148,26 +157,19 @@ const handleAnswer = async (option) => {
             option_id: option.id
         });
 
-        // Marcamos completado visualmente de inmediato
         clips.value[currentIndex.value].completed = true; 
 
         if (response.data.correct) {
-            // ACIERTO
             clips.value[currentIndex.value].won = true; 
-
             soundCorrect.currentTime = 0; soundCorrect.play().catch(e => null);
             confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 }, colors: ['#FACC15', '#ffffff', '#00ff00'] });
 
             if (response.data.total_score) userScore.value = response.data.total_score;
-
             setTimeout(() => { goToNextVideo(); }, 1500);
         } else {
-            // ERROR
             clips.value[currentIndex.value].won = false;
-
             soundWrong.currentTime = 0; soundWrong.play().catch(e => null);
             triggerShake();
-
             setTimeout(() => { showQuiz.value = false; goToNextVideo(); }, 1000);
         }
     } catch (error) {
@@ -183,8 +185,8 @@ onMounted(() => {
     window.addEventListener('touchstart', handleTouchStart);
     window.addEventListener('touchend', handleTouchEnd);
     
-    // PRE-CARGA
-    fetchNextClip();
+    // 🌟 Arrancamos el motor de pre-carga apenas se abre la página
+    maintainBuffer();
 });
 
 onBeforeUnmount(() => {
@@ -199,6 +201,11 @@ onBeforeUnmount(() => {
 
     <div class="h-screen w-full bg-gray-900 flex flex-col items-center justify-center overflow-hidden relative">
         
+        <div class="hidden">
+            <video v-if="clips[currentIndex + 1]" :src="clips[currentIndex + 1].video_url" preload="auto"></video>
+            <video v-if="clips[currentIndex + 2]" :src="clips[currentIndex + 2].video_url" preload="auto"></video>
+        </div>
+
         <Link :href="route('dashboard')" class="absolute top-4 left-4 z-50 flex items-center justify-center sm:justify-start gap-2 bg-black/40 backdrop-blur-md w-10 h-10 sm:w-auto sm:h-auto sm:px-4 sm:py-2 rounded-full hover:bg-black/60 text-white transition border border-white/10 group">
             <ArrowLeft class="w-5 h-5 sm:w-4 sm:h-4 group-hover:-translate-x-1 transition-transform" />
             <span class="text-xs font-bold hidden sm:inline">Salir</span>
@@ -222,8 +229,7 @@ onBeforeUnmount(() => {
                 <Transition :name="transitionName">
                     <VideoPlayer 
                         v-if="clips.length > 0"
-                        :key="clips[currentIndex].id" 
-                        ref="videoPlayerRef" 
+                        :key="clips[currentIndex].queue_id"  ref="videoPlayerRef" 
                         :clip="clips[currentIndex]" 
                         :score="userScore"
                         class="absolute inset-0 w-full h-full object-cover" 

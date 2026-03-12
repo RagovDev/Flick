@@ -34,21 +34,27 @@ const pauseVideo = () => {
     }
 };
 
-const resumeVideo = () => {
-    if (videoRef.value) {
-        videoRef.value.play()
-            .then(() => {
+// 🌟 OPTIMIZACIÓN 1: Uso de async/await para código más limpio y sin duplicar lógica
+const resumeVideo = async () => {
+    if (!videoRef.value) return;
+    
+    try {
+        videoRef.value.muted = isGlobalMuted.value; // Aseguramos el estado global
+        await videoRef.value.play();
+        isPlaying.value = true;
+        pausedByInteraction.value = false;
+    } catch (error) {
+        // Fallback de seguridad del navegador
+        if (error.name === 'NotAllowedError') {
+            videoRef.value.muted = true;
+            isGlobalMuted.value = true; // Forzamos silencio global
+            try {
+                await videoRef.value.play();
                 isPlaying.value = true;
-                pausedByInteraction.value = false;
-            })
-            .catch(e => {
-                // Fallback de seguridad del navegador
-                if (e.name === 'NotAllowedError') {
-                    videoRef.value.muted = true;
-                    isGlobalMuted.value = true; // Forzamos el estado global a silencio si el navegador lo bloquea
-                    videoRef.value.play();
-                }
-            });
+            } catch (e) {
+                isPlaying.value = false; // Si falla incluso en silencio, nos rendimos
+            }
+        }
     }
 };
 
@@ -61,18 +67,27 @@ const handleWordInteraction = () => {
 
 defineExpose({ resume: resumeVideo });
 
-const currentSubtitleText = computed(() => {
-    const rawData = props.clip.transcript_json || props.clip.transcript;
-    if (!rawData || !showSubs.value) return null;
+// 🌟 OPTIMIZACIÓN 2: Pre-procesamos los subtítulos UNA SOLA VEZ
+// Hacemos el parseFloat y le sumamos el padding de 0.2s aquí, no en tiempo real
+const parsedTranscript = computed(() => {
+    const rawData = props.clip?.transcript_json || props.clip?.transcript;
+    if (!rawData) return [];
 
     const segments = Array.isArray(rawData) ? rawData : (rawData.segments || []);
-    const now = currentTime.value;
+    
+    return segments.map(line => ({
+        ...line,
+        startNum: parseFloat(line.start),
+        endNum: parseFloat(line.end) + 0.2
+    }));
+});
 
-    const activeLine = segments.find(line => {
-        const start = parseFloat(line.start);
-        const end = parseFloat(line.end);
-        return now >= start && now <= (end + 0.2);
-    });
+// 🌟 Ahora esta función es extremadamente ligera y rápida (4 veces por segundo)
+const currentSubtitleText = computed(() => {
+    if (!showSubs.value || parsedTranscript.value.length === 0) return null;
+    
+    const now = currentTime.value;
+    const activeLine = parsedTranscript.value.find(line => now >= line.startNum && now <= line.endNum);
 
     return activeLine ? activeLine.text : null;
 });
@@ -87,7 +102,7 @@ const toggleMute = (e) => {
     e?.stopPropagation(); 
     if (videoRef.value) { 
         videoRef.value.muted = !videoRef.value.muted; 
-        isGlobalMuted.value = videoRef.value.muted; // Actualiza el estado global al tocar el botón
+        isGlobalMuted.value = videoRef.value.muted; 
     }
 };
 
@@ -113,7 +128,8 @@ const handleLikeUpdate = ({ isLiked, count }) => {
     props.clip.likes_count = count;
 };
 
-onMounted(() => { attemptAutoplay(); });
+// 🌟 Eliminamos la función duplicada "attemptAutoplay" y usamos la mejorada "resumeVideo"
+onMounted(() => { resumeVideo(); });
 
 watch(() => props.clip, () => { 
     isPlaying.value = false; 
@@ -121,27 +137,8 @@ watch(() => props.clip, () => {
     if (videoRef.value) {
         videoRef.value.currentTime = 0;
     }
-    setTimeout(attemptAutoplay, 100); 
+    setTimeout(resumeVideo, 100); 
 });
-
-const attemptAutoplay = () => {
-    if (videoRef.value) {
-        // Al cargar un video nuevo, le aplicamos el estado global de audio
-        videoRef.value.muted = isGlobalMuted.value;
-        
-        const playPromise = videoRef.value.play();
-        if (playPromise !== undefined) {
-            playPromise.then(() => { 
-                isPlaying.value = true; 
-            }).catch(() => { 
-                isPlaying.value = false; 
-                videoRef.value.muted = true; 
-                isGlobalMuted.value = true; // Si el navegador lo bloquea, lo silenciamos globalmente
-                videoRef.value.play(); 
-            });
-        }
-    }
-};
 </script>
 
 <template>
