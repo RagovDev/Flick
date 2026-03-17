@@ -72,16 +72,6 @@ const executeDelete = () => {
                     <LayoutDashboard class="text-yellow-400" />
                     Panel de Control Flick
                 </h2>
-                
-                <div class="flex gap-3 w-full sm:w-auto">
-                    <Link :href="route('admin.clips.index')" class="flex-1 sm:flex-none bg-gray-800 border border-gray-600 hover:bg-gray-700 text-white font-bold py-2.5 px-6 rounded-xl flex items-center justify-center transition">
-                        Ver Todos
-                    </Link>
-                    <Link :href="route('admin.clips.create')" class="flex-1 sm:flex-none bg-yellow-400 hover:bg-yellow-300 text-black font-black py-2.5 px-6 rounded-xl flex items-center justify-center gap-2 transition hover:scale-105 shadow-[0_0_15px_rgba(250,204,21,0.3)]">
-                        <Plus size="20" stroke-width="3" />
-                        <span class="hidden sm:inline">Subir Video</span>
-                    </Link>
-                </div>
             </div>
         </template>
 

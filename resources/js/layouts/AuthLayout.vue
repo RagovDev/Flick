@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed } from 'vue'; // 🌟 Agregamos computed
 import { Link, usePage } from '@inertiajs/vue3';
-import { Menu, X, Home, LayoutDashboard, UploadCloud, LogOut, User as UserIcon, BookOpen, PlayCircle } from 'lucide-vue-next';
+import { Menu, X, Home, LayoutDashboard, UploadCloud, LogOut, User as UserIcon, BookOpen, PlayCircle, Film } from 'lucide-vue-next';
 
 const showingNavigationDropdown = ref(false);
 const page = usePage();
@@ -49,6 +49,12 @@ const user = computed(() => page.props.auth.user);
                                     <LayoutDashboard class="w-4 h-4 mr-2" />
                                     Admin
                                 </Link>
+                                
+                                <Link :href="route('admin.clips.index')" :class="['inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium leading-5 transition duration-150 ease-in-out', route().current('admin.clips.index') ? 'border-yellow-400 text-white' : 'border-transparent text-gray-400 hover:text-gray-300 hover:border-gray-500']">
+                                    <Film class="w-4 h-4 mr-2" />
+                                    Biblioteca
+                                </Link>
+
                                 <Link :href="route('admin.clips.create')" :class="['inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium leading-5 transition duration-150 ease-in-out', route().current('admin.clips.create') ? 'border-yellow-400 text-white' : 'border-transparent text-gray-400 hover:text-gray-300 hover:border-gray-500']">
                                     <UploadCloud class="w-4 h-4 mr-2" />
                                     Subir Video
@@ -105,6 +111,9 @@ const user = computed(() => page.props.auth.user);
                     
                     <template v-if="user.is_admin">
                         <Link :href="route('admin.dashboard')" class="block pl-3 pr-4 py-2 border-l-4 text-base font-medium transition duration-150 ease-in-out" :class="route().current('admin.dashboard') ? 'border-yellow-400 text-white bg-gray-700/50' : 'border-transparent text-gray-400 hover:text-gray-200 hover:bg-gray-700'">Panel Admin</Link>
+                        
+                        <Link :href="route('admin.clips.index')" class="block pl-3 pr-4 py-2 border-l-4 text-base font-medium transition duration-150 ease-in-out" :class="route().current('admin.clips.index') ? 'border-yellow-400 text-white bg-gray-700/50' : 'border-transparent text-gray-400 hover:text-gray-200 hover:bg-gray-700'">Biblioteca</Link>
+
                         <Link :href="route('admin.clips.create')" class="block pl-3 pr-4 py-2 border-l-4 text-base font-medium transition duration-150 ease-in-out" :class="route().current('admin.clips.create') ? 'border-yellow-400 text-white bg-gray-700/50' : 'border-transparent text-gray-400 hover:text-gray-200 hover:bg-gray-700'">Subir Video</Link>
                     </template>
                 </div>

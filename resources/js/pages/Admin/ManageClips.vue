@@ -111,17 +111,7 @@ const submitEdit = () => {
                 <h2 class="font-bold text-2xl text-white leading-tight flex items-center gap-2">
                     <Film class="text-yellow-400" />
                     Biblioteca de Videos
-                </h2>
-                
-                <div class="flex gap-3 w-full sm:w-auto">
-                    <Link :href="route('admin.dashboard')" class="flex-1 sm:flex-none bg-gray-700 hover:bg-gray-600 text-white font-bold py-2.5 px-4 rounded-xl flex items-center justify-center transition">
-                        Volver al Panel
-                    </Link>
-                    <Link :href="route('admin.clips.create')" class="flex-1 sm:flex-none bg-yellow-400 hover:bg-yellow-300 text-black font-black py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 transition shadow-[0_0_15px_rgba(250,204,21,0.3)]">
-                        <Plus size="20" stroke-width="3" />
-                        <span class="hidden sm:inline">Subir Video</span>
-                    </Link>
-                </div>
+                </h2>                
             </div>
         </template>
 
