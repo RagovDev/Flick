@@ -181,7 +181,7 @@ class ClipController extends Controller
         try {
             $response = \Illuminate\Support\Facades\Http::withHeaders([
                 'Content-Type' => 'application/json',
-            ])->post("https://generativelanguage.googleapis.com/v1beta/models/gemma-3-27b-it:generateContent?key=" . $apiKey, [
+            ])->post("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=" . $apiKey, [
                 'contents' => [
                     ['parts' => [['text' => $prompt]]]
                 ]
