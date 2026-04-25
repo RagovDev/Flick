@@ -65,7 +65,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::controller(VocabularyController::class)->prefix('vocabulary')->name('vocabulary.')->group(function () {
         Route::get('/', 'index')->name('index');
         Route::get('/practice', 'practice')->name('practice');
-        Route::post('/save', 'store')->name('store'); // 🌟 Bug corregido: ahora se llama 'store'
+        Route::post('/save', 'store')->name('store'); 
         Route::delete('/{id}', 'destroy')->name('destroy');
     });
 });

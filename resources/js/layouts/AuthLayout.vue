@@ -8,6 +8,24 @@ const page = usePage();
 
 // 🌟 MAGIA REACTIVA: Ahora si el usuario gana puntos, el navbar se actualiza al instante
 const user = computed(() => page.props.auth.user);
+
+// 🌟 NUEVO: Sistema de Niveles y Gamificación
+const userLevelInfo = computed(() => {
+    const score = user.value.score || 0;
+    
+    const levels = [
+        { min: 0, title: 'Novato', icon: '🌱' },
+        { min: 100, title: 'Aprendiz', icon: '📖' },
+        { min: 300, title: 'Explorador', icon: '🧭' },
+        { min: 600, title: 'Conversador', icon: '🗣️' },
+        { min: 1000, title: 'Bilingüe', icon: '⚡' },
+        { min: 2000, title: 'Leyenda', icon: '👑' }
+    ];
+
+    // Encuentra el nivel más alto que el usuario ha alcanzado
+    // slice().reverse() hace que busquemos desde el nivel más alto hacia abajo
+    return levels.slice().reverse().find(l => score >= l.min) || levels[0];
+});
 </script>
 
 <template>
@@ -66,8 +84,12 @@ const user = computed(() => page.props.auth.user);
 
                     <div class="hidden sm:flex sm:items-center sm:ml-6">
                         <div class="flex items-center gap-4"> 
-                            <div class="text-sm font-bold text-yellow-400 flex items-center gap-1 bg-yellow-400/10 px-3 py-1.5 rounded-full border border-yellow-400/20 shadow-inner">
-                                🏆 {{ user.score || 0 }} pts
+                            <div class="flex items-center gap-2 bg-gray-900/80 px-3 py-1.5 rounded-full border border-gray-700 shadow-inner" :title="`Puntaje total: ${user.score || 0} pts`">
+                                <span class="text-base">{{ userLevelInfo.icon }}</span>
+                                <div class="flex flex-col">
+                                    <span class="text-[10px] text-gray-400 font-bold uppercase leading-none">{{ userLevelInfo.title }}</span>
+                                    <span class="text-xs font-black text-yellow-400 leading-none">{{ user.score || 0 }} pts</span>
+                                </div>
                             </div>
                             
                             <div class="h-6 w-px bg-gray-700 mx-1"></div>
@@ -121,7 +143,10 @@ const user = computed(() => page.props.auth.user);
                 <div class="pt-4 pb-1 border-t border-gray-700 bg-gray-900/50">
                     <div class="flex items-center justify-between px-4 mb-2">
                         <div class="font-medium text-base text-gray-200">{{ user.name }}</div>
-                        <div class="font-medium text-sm text-yellow-400">🏆 {{ user.score || 0 }} pts</div>
+                        <div class="text-right">
+                            <div class="font-bold text-sm text-yellow-400">{{ user.score || 0 }} pts</div>
+                            <div class="font-medium text-xs text-gray-400 uppercase tracking-wide">{{ userLevelInfo.icon }} {{ userLevelInfo.title }}</div>
+                        </div>
                     </div>
                     <div class="space-y-1">
                         <Link :href="route('logout')" method="post" as="button" class="block w-full text-left pl-3 pr-4 py-2 border-l-4 border-transparent text-base font-medium text-red-400 hover:text-white hover:bg-red-500 transition duration-150 ease-in-out">

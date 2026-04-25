@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, onBeforeUnmount } from 'vue';
+import { ref, onMounted, onBeforeUnmount, computed } from 'vue';
 import { Head, router, usePage, Link } from '@inertiajs/vue3';
 import VideoPlayer from '@/components/VideoPlayer.vue';
 import QuizOverlay from '@/components/QuizOverlay.vue';
@@ -13,7 +13,6 @@ const props = defineProps({
     activeCategory: { type: String, default: null } 
 });
 
-// --- ESTADO ---
 const clips = ref([{
     ...props.initialClip,
     queue_id: Date.now() + Math.random() 
@@ -34,15 +33,17 @@ const soundCorrect = new Audio('/audio/quiz/correct.mp3');
 const soundWrong = new Audio('/audio/quiz/wrong.mp3'); 
 soundCorrect.volume = 0.5; soundWrong.volume = 0.6;
 
+const showStreakAnimation = ref(false); 
+const user = computed(() => page.props.auth.user); 
+const xpGained = ref(10); 
+const isCriticalHit = ref(false); 
+const isStreakSaved = ref(false); 
+const currentStreak = ref(0); // 🌟 NUEVO: Para nutrir la animación al instante
 
-// 🌟 1. EL SECRETO: BUFFER AGRESIVO
-// Esta función se asegura de que SIEMPRE haya al menos 2 videos listos por delante
 const maintainBuffer = async () => {
     if (props.isPracticeMode) return;
-    
-    // Si nos quedan menos de 2 videos por delante en la cola, pedimos más
     while ((clips.value.length - 1 - currentIndex.value) < 2) {
-        if (isLoadingNext.value) break; // Evita cruces de peticiones
+        if (isLoadingNext.value) break; 
         await fetchNextClip();
     }
 };
@@ -53,16 +54,11 @@ const fetchNextClip = async () => {
         const response = await axios.get('/flick/next', {
             params: { category: props.activeCategory } 
         });
-        
         if (response.status !== 204 && response.data) {
-            // 🌟 QUITAMOS EL "if (!exists)"
-            // Le pegamos un "Ticket de fila" (queue_id) único
             const newClip = {
                 ...response.data,
                 queue_id: Date.now() + Math.random()
             };
-            
-            // Lo metemos a la fila sin importar si ya lo vimos
             clips.value.push(newClip);
         }
     } catch (error) {
@@ -72,28 +68,21 @@ const fetchNextClip = async () => {
     }
 };
 
-// --- NAVEGACIÓN INSTANTÁNEA ---
 const goToNextVideo = () => {
     if (isScrolling.value) return;
-
     if (currentIndex.value < clips.value.length - 1) {
-        // 🌟 TIKTOK STYLE: Si ya hay video en cola, deslizamos de inmediato. ¡Cero esperas!
         isScrolling.value = true;
         transitionName.value = 'slide-up';
         currentIndex.value++;
         showQuiz.value = false;
         
         setTimeout(() => isScrolling.value = false, 500);
-        
-        // Rellenamos el buffer en segundo plano sin molestar al usuario
         maintainBuffer();
-        
     } else {
-        // Solo entramos aquí si el internet del usuario es MUY lento y se acabó el buffer
         isLoadingNext.value = true;
         maintainBuffer().then(() => {
             if (currentIndex.value < clips.value.length - 1) {
-                goToNextVideo(); // Reintenta deslizar automáticamente
+                goToNextVideo(); 
             }
         });
     }
@@ -108,7 +97,6 @@ const goToPrevVideo = () => {
     setTimeout(() => isScrolling.value = false, 500);
 };
 
-// --- GESTOS ---
 const handleWheel = (e) => {
     if (showQuiz.value) return;
     if (e.deltaY > 30) goToNextVideo();
@@ -124,7 +112,6 @@ const handleTouchEnd = (e) => {
     else if (diff < -50) goToPrevVideo();
 };
 
-// --- QUIZ & PUNTUACIÓN ---
 const openQuiz = () => {
     if (clips.value[currentIndex.value].completed) return;
     showQuiz.value = true;
@@ -136,19 +123,6 @@ const closeQuiz = () => {
 };
 
 const handleAnswer = async (option) => {
-    if (props.isPracticeMode) {
-        if (option.is_correct) {
-            soundCorrect.currentTime = 0; soundCorrect.play().catch(e => null);
-            confetti({ particleCount: 80, spread: 60, origin: { y: 0.6 }, colors: ['#60A5FA', '#ffffff'] });
-            showSuccessToast.value = true;
-            setTimeout(() => { router.visit('/dashboard'); }, 2000);
-        } else {
-            soundWrong.currentTime = 0; soundWrong.play().catch(e => null);
-            triggerShake();
-        }
-        return; 
-    }
-
     if (clips.value[currentIndex.value].completed) return; 
 
     try {
@@ -162,15 +136,50 @@ const handleAnswer = async (option) => {
         if (response.data.correct) {
             clips.value[currentIndex.value].won = true; 
             soundCorrect.currentTime = 0; soundCorrect.play().catch(e => null);
-            confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 }, colors: ['#FACC15', '#ffffff', '#00ff00'] });
-
+            
+            if (props.isPracticeMode) {
+                confetti({ particleCount: 80, spread: 60, origin: { y: 0.6 }, colors: ['#60A5FA', '#ffffff'] });
+            } else {
+                confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 }, colors: ['#FACC15', '#ffffff', '#00ff00'] });
+            }
+            
+            // 🌟 Atrapamos TODOS los datos al instante
             if (response.data.total_score) userScore.value = response.data.total_score;
-            setTimeout(() => { goToNextVideo(); }, 1500);
+            xpGained.value = response.data.points_earned;
+            isCriticalHit.value = response.data.is_critical;
+            isStreakSaved.value = response.data.streak_saved; 
+            currentStreak.value = response.data.streak; // 🌟 Sin latencia
+            
+            router.reload({ only: ['auth'] }); 
+
+            if (isCriticalHit.value || isStreakSaved.value) {
+                showStreakAnimation.value = true;
+                
+                setTimeout(() => {
+                    showStreakAnimation.value = false;
+                    if (props.isPracticeMode) {
+                        router.visit('/dashboard');
+                    } else {
+                        goToNextVideo(); 
+                    }
+                }, 2500); 
+
+            } else {
+                if (props.isPracticeMode) {
+                    setTimeout(() => router.visit('/dashboard'), 1500);
+                } else {
+                    setTimeout(() => goToNextVideo(), 1000); 
+                }
+            }
+
         } else {
             clips.value[currentIndex.value].won = false;
             soundWrong.currentTime = 0; soundWrong.play().catch(e => null);
             triggerShake();
-            setTimeout(() => { showQuiz.value = false; goToNextVideo(); }, 1000);
+            
+            if (!props.isPracticeMode) {
+                setTimeout(() => { showQuiz.value = false; goToNextVideo(); }, 1000);
+            }
         }
     } catch (error) {
         console.error("Error check:", error);
@@ -179,13 +188,10 @@ const handleAnswer = async (option) => {
 
 const triggerShake = () => { isShaking.value = true; setTimeout(() => isShaking.value = false, 500); };
 
-// --- CICLO DE VIDA ---
 onMounted(() => {
     window.addEventListener('wheel', handleWheel);
     window.addEventListener('touchstart', handleTouchStart);
     window.addEventListener('touchend', handleTouchEnd);
-    
-    // 🌟 Arrancamos el motor de pre-carga apenas se abre la página
     maintainBuffer();
 });
 
@@ -251,23 +257,47 @@ onBeforeUnmount(() => {
                 <div class="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-white"></div>
             </div>
 
-            <transition enter-active-class="transform ease-out duration-300 transition" enter-from-class="translate-y-2 opacity-0 sm:translate-y-0 sm:translate-x-2" enter-to-class="translate-y-0 opacity-100 sm:translate-x-0" leave-active-class="transition ease-in duration-100" leave-from-class="opacity-100" leave-to-class="opacity-0">
-                <div v-if="showSuccessToast" class="absolute top-20 z-50 flex justify-center w-full px-4">
-                    <div class="bg-gray-900/90 backdrop-blur-md border border-yellow-400/50 text-white px-6 py-4 rounded-2xl shadow-[0_0_30px_rgba(250,204,21,0.3)] flex items-center gap-4 max-w-sm w-full">
-                        <div class="bg-yellow-400/20 p-2 rounded-full text-yellow-400 animate-bounce">
-                            <CheckCircle size="32" stroke-width="2.5" />
-                        </div>
-                        <div>
-                            <h4 class="font-bold text-lg text-yellow-400">¡Excelente Memoria!</h4>
-                            <p class="text-sm text-gray-300">Volviendo al panel...</p>
-                        </div>
-                        <div class="absolute bottom-0 left-0 h-1 bg-yellow-400 animate-shrink w-full rounded-b-2xl"></div>
-                    </div>
-                </div>
-            </transition>
-
         </div>
     </div>
+
+    <transition
+        enter-active-class="transition ease-out duration-500"
+        enter-from-class="opacity-0 scale-50 translate-y-20"
+        enter-to-class="opacity-100 scale-100 translate-y-0"
+        leave-active-class="transition ease-in duration-300"
+        leave-from-class="opacity-100 scale-100"
+        leave-to-class="opacity-0 scale-75"
+    >
+        <div v-if="showStreakAnimation" class="fixed inset-0 z-[100] flex items-center justify-center pointer-events-none bg-black/70 backdrop-blur-md">
+            
+            <div class="flex flex-col items-center justify-center text-center" :class="{'animate-pulse': isCriticalHit}">
+            
+            <div class="text-9xl mb-4" :class="isCriticalHit ? 'animate-spin-slow drop-shadow-[0_0_50px_rgba(168,85,247,0.8)]' : 'animate-bounce drop-shadow-[0_0_50px_rgba(249,115,22,0.8)]'">
+                <template v-if="isCriticalHit && isStreakSaved">🌟🔥</template>
+                <template v-else-if="isCriticalHit">🌟</template>
+                <template v-else>🔥</template>
+            </div>
+            
+            <h2 class="text-5xl font-black tracking-widest uppercase drop-shadow-2xl" 
+                :class="isCriticalHit ? 'text-purple-400' : 'text-white'">
+                <template v-if="isCriticalHit && isStreakSaved">¡Crítico y Racha!</template>
+                <template v-else-if="isCriticalHit">¡Golpe Crítico!</template>
+                <template v-else>¡Racha Salvada!</template>
+            </h2>
+            
+            <p class="text-3xl font-bold mt-3 drop-shadow-md flex items-center gap-2"
+            :class="isCriticalHit ? 'text-purple-300' : 'text-orange-400'">
+                {{ currentStreak }} {{ currentStreak === 1 ? 'Día Seguido' : 'Días Seguidos' }}
+            </p>
+            
+            <div class="mt-6 px-8 py-2 border-2 rounded-full font-black text-2xl tracking-widest transition-all scale-110"
+                :class="isCriticalHit ? 'bg-purple-500/30 border-purple-400 text-purple-300 shadow-[0_0_25px_rgba(168,85,247,0.6)]' : 'bg-yellow-400/20 border-yellow-400 text-yellow-400 shadow-[0_0_15px_rgba(250,204,21,0.4)]'">
+                +{{ xpGained }} XP
+            </div>
+            
+        </div>
+        </div>
+    </transition>
 </template>
 
 <style scoped>

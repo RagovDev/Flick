@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Http;
+use Carbon\Carbon;
 
 class ClipController extends Controller
 {
@@ -49,7 +50,7 @@ class ClipController extends Controller
     }
 
     /**
-     * Valida la respuesta del usuario y suma puntos.
+     * Valida la respuesta del usuario y suma puntos (Con Gamificación).
      */
     public function check(Request $request)
     {
@@ -64,11 +65,13 @@ class ClipController extends Controller
             ->where('clip_id', $request->clip_id)
             ->exists();
 
-        // Seguridad Backend: Si ya respondió, rechazamos el intento de sumar puntos
+        // Seguridad Backend: Anti-trampas
         if ($alreadyAnswered) {
             return response()->json([
                 'correct' => false,
                 'points_earned' => 0,
+                'is_critical' => false,
+                'streak_saved' => false,
                 'total_score' => $user->score,
                 'message' => 'Ya respondiste este video.'
             ]);
@@ -87,17 +90,54 @@ class ClipController extends Controller
         );
 
         $pointsEarned = 0;
+        $isCritical = false;
+        $streakSaved = false;
 
         if ($isCorrect) {
-            $questionPoints = $option->question->points ?? 10;
-            $user->increment('score', $questionPoints);
-            $pointsEarned = $questionPoints;
+            // --- 🔥 1. LÓGICA DE RACHAS (INFALIBLE) ---
+            $lastActivity = $user->last_activity_at ? \Carbon\Carbon::parse($user->last_activity_at) : null;
+
+            if (!$lastActivity) {
+                $user->streak = 1;
+                $streakSaved = true; // Primera vez en la vida
+            } else {
+                if ($lastActivity->isYesterday()) {
+                    $user->streak += 1;
+                    $streakSaved = true; // Entró ayer, mantiene racha
+                } elseif ($lastActivity->isToday()) {
+                    $streakSaved = false; // Ya salvó la racha más temprano hoy
+                } else {
+                    $user->streak = 1;
+                    $streakSaved = true; // Faltó ayer, castigado, vuelve a 1
+                }
+            }
+            $user->last_activity_at = now();
+
+            // --- 🎰 2. LÓGICA DE RECOMPENSA VARIABLE ---
+            $chance = rand(1, 100);
+            $basePoints = $option->question->points ?? 10;
+
+            if ($chance <= 5) {
+                $pointsEarned = $basePoints * 5; // 5% Probabilidad: 50 pts (Jackpot)
+                $isCritical = true;
+            } elseif ($chance <= 25) {
+                $pointsEarned = $basePoints * 2; // 20% Probabilidad: 20 pts (Crítico)
+                $isCritical = true;
+            } else {
+                $pointsEarned = $basePoints;     // 75% Probabilidad: 10 pts (Normal)
+            }
+
+            $user->score += $pointsEarned;
+            $user->save();
         }
 
         return response()->json([
             'correct' => $isCorrect,
             'points_earned' => $pointsEarned,
+            'is_critical' => $isCritical,
+            'streak_saved' => $streakSaved,
             'total_score' => $user->fresh()->score,
+            'streak' => $user->fresh()->streak, // 🌟 Siempre devolvemos el dato más fresco
             'message' => $isCorrect ? '¡Correcto!' : 'Ups, casi.'
         ]);
     }
@@ -198,7 +238,6 @@ class ClipController extends Controller
                     'debug_google' => env('APP_DEBUG') ? $response->json() : null // Protege info en prod
                 ], 500);
             }
-            
         } catch (\Exception $e) {
             return response()->json([
                 'translation' => 'Error de conexión',

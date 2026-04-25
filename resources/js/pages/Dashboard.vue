@@ -1,9 +1,12 @@
 <script setup>
 import { computed } from 'vue'; // 🌟 Agregamos computed
-import { Head, Link } from '@inertiajs/vue3';
+import { Head, Link, usePage } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/layouts/AuthLayout.vue'; 
 import { Trophy, Video, Star, PlayCircle, Zap, Play, CheckCircle, XCircle, Clock, Film, Music, Cpu, Globe, Rocket } from 'lucide-vue-next';
 import { route } from 'ziggy-js';
+
+const page = usePage();
+const user = computed(() => page.props.auth.user);
 
 const props = defineProps({
     auth: Object,
@@ -35,6 +38,36 @@ const channels = [
     { id: 'tech', name: 'Tech & IA', icon: Cpu, color: 'from-blue-500 to-cyan-500', desc: 'Innovación' },
     { id: 'travel', name: 'Viajes', icon: Globe, color: 'from-green-500 to-emerald-500', desc: 'Cultura global' },
 ];
+
+// 🌟 Lógica sincronizada con la barra superior + Barra de progreso
+const levelData = computed(() => {
+    const score = user.value.score || 0;
+
+    const tiers = [
+        { level: 1, min: 0, title: 'Novato del Inglés', next: 100, nextTitle: 'Aprendiz', icon: '🌱' },
+        { level: 2, min: 100, title: 'Aprendiz', next: 300, nextTitle: 'Explorador', icon: '📖' },
+        { level: 3, min: 300, title: 'Explorador', next: 600, nextTitle: 'Conversador', icon: '🧭' },
+        { level: 4, min: 600, title: 'Conversador', next: 1000, nextTitle: 'Bilingüe', icon: '🗣️' },
+        { level: 5, min: 1000, title: 'Bilingüe', next: 2000, nextTitle: 'Leyenda', icon: '⚡' },
+        { level: 6, min: 2000, title: 'Leyenda Flick', next: null, nextTitle: null, icon: '👑' }
+    ];
+
+    const current = tiers.slice().reverse().find(t => score >= t.min) || tiers[0];
+    
+    // Calculamos qué tan llena debe estar la barra amarilla
+    let progressPercent = 100; // Por defecto al 100% si es Leyenda
+    if (current.next) {
+        const pointsInCurrentLevel = score - current.min;
+        const pointsNeededForNext = current.next - current.min;
+        progressPercent = (pointsInCurrentLevel / pointsNeededForNext) * 100;
+    }
+
+    return {
+        ...current,
+        score: score,
+        progressPercent: Math.min(progressPercent, 100) // Asegura que no pase de 100%
+    };
+});
 </script>
 
 <template>
@@ -61,36 +94,41 @@ const channels = [
         <div class="py-12">
             <div class="max-w-7xl mx-auto sm:px-6 lg:px-8 space-y-8">
                 
-                <div class="bg-gray-800/50 backdrop-blur-sm overflow-hidden shadow-2xl sm:rounded-2xl border border-gray-700 p-8 relative group">
-                    <div class="absolute top-0 right-0 w-64 h-64 bg-yellow-500/5 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
-
-                    <div class="flex flex-col md:flex-row items-center gap-8 relative z-10">
-                        <div class="relative group-hover:scale-110 transition duration-500">
-                            <div class="absolute inset-0 bg-yellow-500 blur-2xl opacity-20 rounded-full group-hover:opacity-40 transition duration-700 animate-pulse"></div>
-                            <Trophy class="text-yellow-400 w-24 h-24 relative z-10 drop-shadow-[0_0_15px_rgba(250,204,21,0.6)]" stroke-width="1.5" />
+                <div class="bg-gray-800/50 rounded-2xl border border-gray-700 p-6 flex flex-col justify-center">
+                    <div class="flex items-center gap-6 mb-6">
+                        <div class="w-20 h-20 rounded-2xl bg-yellow-400/10 border border-yellow-400/20 flex items-center justify-center shrink-0">
+                            <div class="w-20 h-20 rounded-2xl bg-yellow-400/10 border border-yellow-400/20 flex items-center justify-center shrink-0">
+                                <span class="text-4xl">{{ levelData.icon }}</span>
+                            </div>
                         </div>
-                        
-                        <div class="flex-1 w-full text-center md:text-left">
-                            <h3 class="text-gray-500 text-xs uppercase tracking-[0.2em] font-bold mb-1">Nivel Actual</h3>
-                            
-                            <div class="flex flex-col md:flex-row items-center md:items-end gap-3 mb-4 justify-center md:justify-start">
-                                <span class="text-6xl font-black text-white leading-none tracking-tight">{{ stats?.level || 1 }}</span>
-                                <div class="text-left">
-                                    <span class="block text-yellow-400 font-bold text-xl leading-none">Novato del Inglés</span>
-                                    <span class="text-gray-400 text-xs">Sigue así para subir a Aprendiz</span>
+                        <div class="w-full">
+                            <div class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Nivel Actual</div>
+                            <div class="flex items-end gap-3 mb-1">
+                                <span class="text-5xl font-black text-white leading-none">{{ levelData.level }}</span>
+                                <div class="pb-1">
+                                    <div class="text-xl font-bold text-yellow-400">{{ levelData.title }}</div>
+                                    
+                                    <div v-if="levelData.next" class="text-sm text-gray-400">
+                                        Sigue así para subir a <span class="text-white font-medium">{{ levelData.nextTitle }}</span>
+                                    </div>
+                                    <div v-else class="text-sm text-yellow-400 font-medium">
+                                        ¡Has alcanzado el nivel máximo!
+                                    </div>
                                 </div>
                             </div>
-                            
-                            <div class="relative w-full h-3 bg-gray-700/50 rounded-full mb-2 overflow-hidden border border-gray-600/50">
-                                <div class="bg-gradient-to-r from-yellow-600 to-yellow-400 h-full rounded-full transition-all duration-1000 shadow-[0_0_15px_rgba(250,204,21,0.6)] relative" :style="{ width: (stats?.progress_percent || 0) + '%' }">
-                                    <div class="absolute top-0 right-0 bottom-0 w-1 bg-white/50"></div>
-                                </div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <div class="h-2 w-full bg-gray-700 rounded-full overflow-hidden mb-2">
+                            <div class="h-full bg-yellow-400 rounded-full transition-all duration-1000 ease-out" 
+                                :style="`width: ${levelData.progressPercent}%`">
                             </div>
-                            
-                            <div class="flex justify-between text-xs font-mono font-medium">
-                                <span class="text-yellow-400/80">{{ auth.user.score }} XP <span class="text-gray-500">Acumulados</span></span>
-                                <span class="text-gray-400">Próximo Nivel: <span class="text-white">{{ stats?.next_level_points || 100 }} XP</span></span>
-                            </div>
+                        </div>
+                        <div class="flex justify-between text-xs font-medium text-gray-500">
+                            <span class="text-yellow-400">{{ levelData.score }} XP Acumulados</span>
+                            <span v-if="levelData.next">Próximo Nivel: {{ levelData.next }} XP</span>
+                            <span v-else>Nivel Máximo</span>
                         </div>
                     </div>
                 </div>
@@ -117,15 +155,17 @@ const channels = [
                         </div>
                     </div>
 
-                    <div class="bg-gray-800/50 p-6 rounded-2xl border border-gray-700/50 flex items-center gap-4 hover:bg-gray-800 hover:border-green-500/30 transition duration-300 group relative overflow-hidden opacity-70">
-                        <div class="absolute -right-8 top-3 bg-yellow-500 text-black text-[9px] font-black uppercase tracking-widest py-0.5 px-8 rotate-45 shadow-lg">Pronto</div>
-                        <div class="p-3 bg-green-500/10 rounded-xl text-green-400 group-hover:scale-110 transition shadow-[0_0_10px_rgba(34,197,94,0.2)]">
-                            <Zap size="28" stroke-width="2" />
+                    <div class="bg-gray-800 p-6 rounded-2xl border border-gray-700 flex items-center gap-4 hover:border-orange-500/50 transition duration-300 group">
+                        <div class="p-3 bg-orange-500/10 rounded-xl text-orange-400 group-hover:scale-110 group-hover:bg-orange-500/20 transition duration-300 shadow-[0_0_15px_rgba(249,115,22,0.15)]">
+                            <Zap size="28" stroke-width="2.5" class="group-hover:animate-pulse" />
                         </div>
                         <div>
-                            <p class="text-gray-400 text-xs font-bold uppercase tracking-wider">Racha Actual</p>
-                            <p class="text-2xl font-black text-white flex items-center gap-1">
-                                1 <span class="text-sm font-medium text-gray-400 mt-1">Día</span>
+                            <p class="text-gray-400 text-xs font-bold uppercase tracking-wider mb-1">Racha Actual</p>
+                            <p class="text-3xl font-black text-white flex items-baseline gap-1.5 leading-none">
+                                {{ user.streak || 0 }} 
+                                <span class="text-sm font-bold text-orange-400/80">
+                                    {{ user.streak === 1 ? 'Día' : 'Días' }}
+                                </span>
                             </p>
                         </div>
                     </div>
