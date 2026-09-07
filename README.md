@@ -1,7 +1,5 @@
 # 🎬 Flick - Aprende Inglés con el Poder del "Scroll Productivo"
 
-![Flick Banner](https://via.placeholder.com/1200x400/111827/FACC15?text=Flick+-+Scroll+Productivo) <!-- Sugerencia: Reemplaza esto con un banner real de tu app -->
-
 **Flick** es una plataforma web innovadora diseñada para revolucionar el aprendizaje del inglés. Combina la interfaz adictiva del scroll infinito (estilo TikTok/Reels) con **Active Recall** (quizzes en contexto) y estrategias avanzadas de **Gamificación y Diseño de Comportamiento** (Modelo Hook).
 
 En lugar de perder tiempo en redes sociales, Flick convierte el scroll en un hábito educativo altamente recompensado.
